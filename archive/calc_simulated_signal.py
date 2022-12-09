@@ -5,7 +5,8 @@ from tokenize import Double
 import numpy as np
 import csv
 
-from func import blackbody_emit
+from func import blackbody_emit, blackbody_emit_old
+from simulator import simulator
 
 
 def calc_simulated_signal():
@@ -36,23 +37,26 @@ def calc_simulated_signal():
 
     c1 = 2 * h * c**2
     c2 = h * c / kb
-    c1_prime = c1 * 1e+24
-    c2_prime = c2 * 1000000
+    c1_prime = c1 * 1e24
+    c2_prime = c2 * 1e6
     temp_K = temp_C + 273.15
 
-    bb_emit = blackbody_emit(c1_prime, c2_prime, spec, temp_K)
+    # bb_emit = blackbody_emit_old(c1_prime, c2_prime, spec, temp_K)
+    bb_emit = blackbody_emit(spec, temp_K)
     
-    t1 = np.multiply(bb_emit, abosorptivity)
+    # mat_emit = np.multiply(bb_emit, emissivity)
+    mat_emit = bb_emit * emissivity
 
-    signature_matrix = np.zeros((emissivity.shape[1], abosorptivity.shape[1]))
+    # signature_matrix = np.zeros((emissivity.shape[1], abosorptivity.shape[1]))
 
-    for i in range(emissivity.shape[1]):
-        t2 = np.multiply(t1, emissivity[:, i:i+1])
-        for j in range (abosorptivity.shape[1]):
-            signature_matrix[i, j] = np.trapz(t2[:, j], spec[:, 0])
+    # for i in range(abosorptivity.shape[1]):
+    #     pix_absorb = np.multiply(mat_emit, abosorptivity[:, i:i+1])
+    #     signature_matrix[:, i] = np.trapz(pix_absorb, spec[:, 0], axis=0)
     
-    print(signature_matrix.transpose())
+    # print(signature_matrix.transpose())
 
+    result = simulator(spec, emissivity[:, 0:1], 1, bb_emit, abosorptivity)
+    print(result)
 
 if __name__ == '__main__':
     calc_simulated_signal()
