@@ -1,18 +1,16 @@
 
-from math import pi
-
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import pdist,squareform
 
-from tools.blackbody_emit import blackbody_emit
+from simulator import simulator
 
-def simulator(spectra, mat_em, temp_K, air_trans, atm_dist_ratio, air_RI, basis_funcs):
-    bb_emit = blackbody_emit(spectra, temp_K, air_RI)
-    tau_air = air_trans ** atm_dist_ratio
-    abso_spec = tau_air * bb_emit * mat_em * basis_funcs
-    out = np.trapz(abso_spec, spectra, axis=0)
 
-    return out
+def difference(items):
+    diff_matrix = squareform(pdist(items, metric='euclidean'))
+    return diff_matrix
+
+
 
 
 if __name__ == '__main__':
@@ -30,13 +28,17 @@ if __name__ == '__main__':
     # Substance related parameters
     spectra = np.array(pd.read_excel('./data/Test 2 - 21 Substances/spectra.xlsx', header=None))
     substances_emit = np.array(pd.read_excel('./data/Test 2 - 21 Substances/substances.xlsx', header=None))
-    mat_proportion = np.array(pd.read_excel('./data/Test 2 - 21 Substances/proportion.xlsx', header=None)) # Material mixture proportion
-    weights = mat_proportion[:, 0] / np.sum(mat_proportion[:, 0])
-    mat_em = np.average(substances_emit, weights=weights, axis=1)
-    mat_em = np.expand_dims(mat_em, 1)
     
     
+    out = []
+    for i in range(substances_emit.shape[1]):
+        mat_em = substances_emit[:, i:i+1]
+        out.append(simulator(spectra, mat_em, temp_K, air_trans, atm_dist_ratio, air_RI, basis_funcs))
+        # print(out[i])
 
-    out = simulator(spectra, mat_em, temp_K, air_trans, atm_dist_ratio, air_RI, basis_funcs)
+    # print(len(out))
 
-    print(out)
+
+    diff_matrix = difference(out)
+    print(diff_matrix)
+    np.savetxt("diff_matrix.csv", diff_matrix, delimiter=",")
