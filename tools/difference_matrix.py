@@ -6,7 +6,7 @@ from scipy.spatial.distance import pdist,squareform
 from simulator import simulator
 
 
-def difference(items):
+def difference_matrix(items):
     diff_matrix = squareform(pdist(items, metric='euclidean'))
     return diff_matrix
 

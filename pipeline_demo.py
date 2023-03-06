@@ -132,20 +132,21 @@ def select_basis_funcs(num_bf):
 
         learning_rate = 1e-3
 
-        num_epochs = 1000
+        num_epochs = 100
 
         # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # device = torch.device("mps")
         device = torch.device("cpu")
-
-        kfold = KFold(n_splits=5, shuffle=True)
+        
+        k = 3
+        kfold = KFold(n_splits=k, shuffle=True)
 
         # Train - k fold
         history = []
         models = []
 
         for fold, (train_ids, valid_ids) in enumerate(kfold.split(train_dataset)):
-            print(f'\nFOLD {fold + 1}')
+#             print(f'\nFOLD {fold + 1}')
         #     print('--------------------------------')
             train_subsampler = SubsetRandomSampler(train_ids)
             valid_subsampler = SubsetRandomSampler(valid_ids)
@@ -157,7 +158,7 @@ def select_basis_funcs(num_bf):
             optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
             
             model_loss_records = {'train_loss': [], 'valid_loss': []}
-            for epoch in tqdm(range(num_epochs)):
+            for epoch in range(num_epochs):
                 train_loss = train_epoch(model, device, train_loader, criterions, optimizer)
                 valid_loss = valid_epoch(model, device, valid_loader, criterions)
                 
@@ -174,7 +175,7 @@ def select_basis_funcs(num_bf):
 
         loss = []
         loss_func_index = 0
-        for i in range (5):
+        for i in range (k):
             loss.append(history[i]["valid_loss"][:, loss_func_index][-1])
         best_model_index = np.argmin(loss)
         model = models[best_model_index]

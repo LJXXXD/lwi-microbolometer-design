@@ -60,6 +60,6 @@ def test_epoch(model, device, dataloader, criterions):
         
         for i, criterion in enumerate(criterions):
             loss = criterion(output, labels)
-            test_loss[i] += loss.item()
+            test_loss[i] += loss.item() * samples.size(0)
             
     return np.asarray(test_loss), pred_list, targ_list
