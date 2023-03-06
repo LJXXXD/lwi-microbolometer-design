@@ -3,5 +3,6 @@
 .ipynb_checkpoints/
 __pycache__/
 .vscode/
+.idea/
 
 playground.*
