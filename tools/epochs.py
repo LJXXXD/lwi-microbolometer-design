@@ -45,12 +45,14 @@ def valid_epoch(model, device, dataloader, criterions):
 
 def test_epoch(model, device, dataloader, criterions):
     test_loss = [0 for criterion in criterions]
+    # test_loss = np.zeros((len(dataloader.dataset), len(criterions)))
     pred_list = []
     targ_list = []
     
     model.eval()
     
-    for samples, labels in dataloader:
+    for batch_ind, batch in enumerate(dataloader):
+        samples, labels = batch[0], batch[1]
         samples, labels = samples.to(device), labels.to(device)
         
         output = model(samples)
@@ -58,8 +60,9 @@ def test_epoch(model, device, dataloader, criterions):
         pred_list.append(output.detach().numpy())
         targ_list.append(labels.detach().numpy())
         
-        for i, criterion in enumerate(criterions):
+        for cri_ind, criterion in enumerate(criterions):
             loss = criterion(output, labels)
-            test_loss[i] += loss.item() * samples.size(0)
-            
-    return np.asarray(test_loss), pred_list, targ_list
+            test_loss[cri_ind] += loss.item() * samples.size(0)
+            # test_loss[batch_ind, cri_ind] = loss
+
+    return np.asarray(test_loss), np.concatenate(pred_list), np.concatenate(targ_list)

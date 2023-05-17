@@ -8,5 +8,6 @@ from tools.simulator import simulator
 from tools.create_dataset import create_dataset
 from tools.MLP import MLP
 from tools.k_fold_train_val import k_fold_train_val
-from tools.train_val_test import train_val_test
+from tools.train_val_test import train_val_test, train_val_test_pretrained
+from tools.load_data import load_data
 

@@ -7,6 +7,7 @@ from tools import Dataset, simulator
 def create_dataset(sim_params):
     data = []
     labels = []
+    sim_params.cal_mix_prop()
     for i in range(sim_params.mat_proportion.shape[1]):
         weights = sim_params.mat_proportion[:, i]
         mat_em = np.average(sim_params.substances_emit, weights=weights, axis=1)

@@ -3,7 +3,6 @@ import numpy as np
 from sklearn.model_selection import KFold
 import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
-from tqdm.notebook import tqdm
 
 from tools import MLP, train_epoch, valid_epoch
 
