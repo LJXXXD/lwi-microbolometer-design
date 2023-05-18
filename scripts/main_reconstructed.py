@@ -13,17 +13,19 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+import sys
+sys.path.insert(0, os.path.abspath('.'))
 from tools import Sim_Parameters, Train_Parameters, create_dataset, RMSELoss, train_val_test, load_data, train_val_test_pretrained
 
 
 
-matplotlib.use("Qt5Agg") # Changing the backend to QT solves ctrl-C not quiting issue in terminal
+matplotlib.use("TkAgg") # Changing the backend to QT solves ctrl-C not quiting issue in terminal
 
 
 
 
 # User Input
-substance_ind_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+substance_ind_list = [0, 1, 2]
 # substance_ind_list = [1, 7, 9, 10, 14]
 substance_ind_list.sort()
 

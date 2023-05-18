@@ -23,6 +23,7 @@ def train_val_test(dataset, train_params, sim_params):
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     test_loss, pred_list, targ_list = test_epoch(models[best_model_index], train_params.device, test_loader, train_params.criterions)
 
+    test_loss[0] = test_loss[0] * sim_params.num_substances
     avg_test_loss = test_loss / len(test_dataset)
 
     return history, models, best_model_index, avg_test_loss, pred_list, targ_list
