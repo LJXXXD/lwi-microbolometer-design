@@ -22,17 +22,17 @@ for i in range(3, 11):
     baseline_loss.append(base_line_loss[0])
 
 # Read the data from the pickle file
-df = pd.read_pickle('output/loss.pkl')
+df = pd.read_pickle('loss.pkl')
 
 # Get the rows with the minimum L1 loss for each group
-min_l1loss_rows = df.groupby(['Temperature_K', 'Substance Number', 'Substance Comb', 'Basis Function Number']).apply(lambda x: x[x.L1Loss == x.L1Loss.min()]).reset_index(drop=True)
+min_l1loss_rows = df.groupby(['Temperature_K', 'Substance Number', 'Substance Comb', 'Basis Function Number', 'Comb of Basis Functions', 'Train Noise Max Percentage', 'Test Noise Max Percentage']).apply(lambda x: x[x.L1Loss == x.L1Loss.min()]).reset_index(drop=True)
 
 # Pivot the table to have the L1 loss values as columns
 table = pd.pivot_table(min_l1loss_rows, values='L1Loss', index='Basis Function Number', columns='Substance Number')
 
 # Calculate the metric score
-for i, col in enumerate(table):
-    table[col] = (1 - table[col] / baseline_loss[i]) * 100
+# for i, col in enumerate(table):
+    # table[col] = (1 - table[col] / baseline_loss[i]) * 100
 
 # Rename the table
 table.columns.name = 'Number of Substances'
@@ -50,13 +50,13 @@ metric_table.plot.line(marker='', ax=ax1)
 
 # Set the x-label and y-label
 ax1.set_xlabel('Number of Basis Functions')
-ax1.set_ylabel('Metric Score (1-L1Loss/BaselineLoss) %')
+ax1.set_ylabel('L1 Loss (Not AVG)')
 
 # Set the title
 ax1.set_title('Metric Score vs Number of Basis Functions for Different Number of Substances')
 
 # Add a legend with the title "Number of Substances"
-ax1.legend(title='Number of Substances', loc='lower right')
+ax1.legend(title='Number of Substances', loc='upper right')
 
 # Set the tick labels to be integers only
 ax1.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -71,13 +71,13 @@ transposed_table.plot.line(marker='', ax=ax2)
 
 # Set the x-label and y-label
 ax2.set_xlabel('Number of Substances')
-ax2.set_ylabel('Metric Score (1-L1Loss/BaselineLoss) %')
+ax2.set_ylabel('L1 Loss (Not AVG)')
 
 # Set the title
 ax2.set_title('Metric Score vs Number of Substances for Different Number of Basis Functions')
 
 # Add a legend with the title "Number of Basis Functions"
-ax2.legend(title='Number of Basis Functions', loc='upper right')
+ax2.legend(title='Number of Basis Functions', loc='lower right')
 
 # Set the tick labels to be integers only
 ax2.xaxis.set_major_locator(plt.MaxNLocator(integer=True))

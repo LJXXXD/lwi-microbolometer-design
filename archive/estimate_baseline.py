@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from tools import RMSELoss, Sim_Parameters, create_dataset, load_data
+from tools import RMSELoss, Sim_Parameters, create_dataset_PCA, load_data
 
 
 
@@ -51,7 +51,7 @@ for num_substances in range(2, 3):
                                 substances_emit=substances_emit,
                                 temp_K=293.15)
 
-    dataset = create_dataset(sim_params)
+    dataset = create_dataset_PCA(sim_params)
     print('Dataset Length', len(dataset))
     # print(dataset)
 

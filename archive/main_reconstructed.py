@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import sys
 sys.path.insert(0, os.path.abspath('.'))
-from tools import Sim_Parameters, Train_Parameters, create_dataset, RMSELoss, train_val_test, load_data, train_val_test_pretrained
+from tools import Sim_Parameters, Train_Parameters, create_dataset_PCA, RMSELoss, train_val_test, load_data, train_val_test_pretrained
 
 
 
@@ -25,8 +25,8 @@ matplotlib.use("TkAgg") # Changing the backend to QT solves ctrl-C not quiting i
 
 
 # User Input
-substance_ind_list = [0, 1, 2]
-# substance_ind_list = [1, 7, 9, 10, 14]
+# substance_ind_list = [6, 11, 13, 14]
+substance_ind_list = [1, 3, 17 ,18]
 substance_ind_list.sort()
 
 basis_func_ind_list = [0, 1, 2, 3, 4, 5, 6]
@@ -64,7 +64,7 @@ for temp_K_ind, temp_K in enumerate(temp_K_list):
                                         substances_emit=substances_emit,
                                         temp_K=temp_K)
 
-            dataset = create_dataset(sim_params)
+            dataset = create_dataset_PCA(sim_params)
 
             train_params = Train_Parameters(train_percentage=0.8,
                                             # batch_size=len(dataset) // 10,

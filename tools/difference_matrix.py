@@ -2,14 +2,27 @@
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist,squareform
+from scipy.stats import wasserstein_distance
 
-from simulator import simulator
+from tools import simulator
 
 
 def difference_matrix(items):
     diff_matrix = squareform(pdist(items, metric='euclidean'))
     return diff_matrix
 
+
+def emd_matrix(items):
+    emd_matrix = np.zeros((len(items), len(items)))
+    for i, sub_a in enumerate(items):
+        for j, sub_b in enumerate(items):
+            sub_a /= np.sum(sub_a)
+            sub_b /= np.sum(sub_b)
+            emd_matrix[i, j] = wasserstein_distance(u_values=np.arange(len(sub_a)),
+                                                    v_values=np.arange(len(sub_b)),
+                                                    u_weights=sub_a,
+                                                    v_weights=sub_b)
+    return emd_matrix
 
 
 
@@ -39,6 +52,6 @@ if __name__ == '__main__':
     # print(len(out))
 
 
-    diff_matrix = difference(out)
+    diff_matrix = difference_matrix(out)
     print(diff_matrix)
     np.savetxt("diff_matrix.csv", diff_matrix, delimiter=",")

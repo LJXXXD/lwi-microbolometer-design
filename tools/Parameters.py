@@ -8,7 +8,7 @@ from tools import ballsINTObins
 
 class Sim_Parameters:
     def __init__(self, air_trans, atm_dist_ratio, air_RI, basis_funcs, basis_func_comb,
-                 substance_ind_list, spectra, substances_emit, temp_K):
+                 substance_ind_list, spectra, substances_emit, temp_K, percentage_step=0.1):
 
         # Enviroment related parameters
         self.temp_K = temp_K # Environmental temperature in K
@@ -24,19 +24,21 @@ class Sim_Parameters:
         self.substance_ind_list = substance_ind_list
         self.spectra = spectra
         self.substances_emit = substances_emit[:, substance_ind_list]
+        self.percentage_step = percentage_step
 
     def cal_mix_prop(self):
         # Material mixture proportion
-        self.mat_proportion = ballsINTObins(10, self.num_substances).transpose() / 10
+        num_balls = int(1/self.percentage_step)
+        self.mat_proportion = ballsINTObins(num_balls, self.num_substances).transpose() / num_balls
 
 
 
 
 class Train_Parameters:
-    def __init__(self, train_percentage, batch_size, criterions, loss_func_names, learning_rate, num_epochs, device, k_fold_flag, k, random_flag, random_seed):
+    def __init__(self, train_percentage, batch_size, criteria, loss_func_names, learning_rate, num_epochs, device, k_fold_flag, k, random_flag, random_seed, train_noise, test_noise):
         self.train_percentage = train_percentage
         self.batch_size = batch_size
-        self.criterions = criterions
+        self.criteria = criteria
         self.loss_func_names = loss_func_names
         self.learning_rate = learning_rate
         self.num_epochs = num_epochs
@@ -45,3 +47,6 @@ class Train_Parameters:
         self.k = k
         self.random_flag = random_flag
         self.random_seed = random_seed
+        self.train_noise = train_noise
+        self.test_noise = test_noise
+        # self.test_aggregation = test_aggregation

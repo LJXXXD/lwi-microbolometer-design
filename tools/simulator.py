@@ -23,7 +23,7 @@ if __name__ == '__main__':
     atm_dist_ratio = 0.11 # Atomsphere distance ratio
     air_RI = 1 # Refractive index of air
 
-    # Sensor related parameters
+    # Sensor related parame ters
     basis_funcs = np.array(pd.read_excel('./data/Test 2 - 21 Substances/Basis functions.xlsx', header=None))
     basis_funcs = basis_funcs[:, 1:]
     
