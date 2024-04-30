@@ -1,0 +1,32 @@
+substance_ind_list: [0, 1, 2, 3]
+
+basis_func_ind_list: [0, 1, 2, 3, 4, 5, 6]
+
+temp_K_list: 
+  start: 253.14
+  stop: 303.15
+  step: 10
+  # Or to use a predefined list, uncomment below:
+  # values: [293.15]
+
+train_noise:
+  start: 0
+  stop: 2.0
+  step: 0.2
+  # Or to use a predefined list, uncomment below:
+  # values: [0, 1]
+  
+
+test_noise:
+  start: 0
+  stop: 2.0
+  step: 0.2
+  # Or to use a predefined list, uncomment below:
+  # values: [0, 1]
+
+file_paths:
+  air_trans_file: './data/Test 3 - 4 White Powers/Air transmittance.xlsx'
+  basis_func_file: './data/Test 3 - 4 White Powers/Basis functions_4-20um.xlsx'
+  spectra_file: './data/Test 3 - 4 White Powers/white_powders_spectra.xlsx'
+  substances_emit_file: './data/Test 3 - 4 White Powers/white_powders.xlsx'
+  substance_names_file: './data/Test 3 - 4 White Powers/white_powders_names.xlsx'
