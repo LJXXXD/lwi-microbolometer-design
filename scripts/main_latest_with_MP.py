@@ -103,7 +103,9 @@ def worker_function(comb, config):
                     else:
                         raise ValueError(f"Loss function {name} not found.")
 
-                train_params = Train_Parameters(train_percentage=config['train_percentage'],
+                train_params = Train_Parameters(num_in=sim_params.basis_funcs.shape[1],
+                                                num_out=sim_params.num_substances,
+                                                train_percentage=config['train_percentage'],
                                                 batch_size=config['batch_size'],
                                                 criteria=criteria,
                                                 loss_func_names = config['loss_func_names'],
@@ -117,7 +119,7 @@ def worker_function(comb, config):
                                                 train_noise=train_noise,
                                                 test_noise=test_noise)
 
-                history, models, best_model_index, avg_test_loss, pred_list, targ_list = train_val_test(dataset, train_params, sim_params)
+                history, models, best_model_index, avg_test_loss, pred_list, targ_list = train_val_test(dataset, train_params)
 
                 loss_values = dict(zip(config['loss_func_names'], avg_test_loss))
                 row = {
@@ -235,7 +237,6 @@ def worker_function(comb, config):
                     # Lock is held by another process, wait and try again
                     time.sleep(1)
 
-            
             # Merge df to df_existing, and if there's duplicates, keep the new values from df
             df = pd.concat([df, df_existing]).drop_duplicates(
                 subset=['Temperature_K', 'Substance Number', 'Substance Comb', 'Basis Function Number', 

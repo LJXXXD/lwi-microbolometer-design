@@ -3,7 +3,7 @@ import itertools
 import os
 import sys
 import time
-import yaml
+# import yaml
 
 import matplotlib
 import numpy as np
@@ -32,107 +32,127 @@ else:
     print("No configuration file provided. Exiting")
     sys.exit(1)
 
-# Extracting static list variables
-substance_ind_list = config['substance_ind_list']
-basis_func_ind_list = config['basis_func_ind_list']
-num_basis_func = config['num_bf']
+# # Extracting static list variables
+# substance_ind_list = config['substance_ind_list']
+# basis_func_ind_list = config['basis_func_ind_list']
+# num_basis_func = config['num_bf']
 
-# Generating lists for temperature, train noise and  test noise
-temp_K_list = get_list_values(config['temp_K_list'])
-train_noise_list = get_list_values(config['train_noise'])
-test_noise_list = get_list_values(config['test_noise'])
+# # Generating lists for temperature, train noise and  test noise
+# temp_K_list = get_list_values(config['temp_K_list'])
+# train_noise_list = get_list_values(config['train_noise'])
+# test_noise_list = get_list_values(config['test_noise'])
 
-air_RI = config['air_refractive_index']
-atm_dist_ratio = config['atm_dist_ratio']
-percentage_step = config['percentage_step']
+# air_RI = config['air_refractive_index']
+# atm_dist_ratio = config['atm_dist_ratio']
+# percentage_step = config['percentage_step']
 
-train_percentage = config['train_percentage']
-batch_size = config['batch_size']
-loss_func_names = config['loss_func_names']
-criteria = []
-for name in loss_func_names:
-    # Check if the loss function is a custom one or from nn module
-    loss_func_class = getattr(nn, name, None) or globals().get(name)
-    if loss_func_class:
-        criteria.append(loss_func_class())
-    else:
-        raise ValueError(f"Loss function {name} not found.")
-learning_rate = config['learning_rate']
-num_epochs = config['num_epochs']
-device = torch.device(config['device'])
-k_fold_flag = config['k_fold_flag']
-k = config['k']
-random_flag = config['random_flag']
-random_seed = config['random_seed']
-confidence_perc = config['confidence']
+# train_percentage = config['train_percentage']
+# batch_size = config['batch_size']
+# loss_func_names = config['loss_func_names']
+# criteria = []
+# for name in loss_func_names:
+#     # Check if the loss function is a custom one or from nn module
+#     loss_func_class = getattr(nn, name, None) or globals().get(name)
+#     if loss_func_class:
+#         criteria.append(loss_func_class())
+#     else:
+#         raise ValueError(f"Loss function {name} not found.")
+# learning_rate = config['learning_rate']
+# num_epochs = config['num_epochs']
+# device = torch.device(config['device'])
+# k_fold_flag = config['k_fold_flag']
+# k = config['k']
+# random_flag = config['random_flag']
+# random_seed = config['random_seed']
+# confidence_perc = config['confidence']
 
-# Load data from excel files
-file_paths = config['file_paths']
-air_trans, basis_funcs, spectra, substances_emit, substance_names = \
-    load_excel_data(file_paths['air_trans_file'],
-                    file_paths['basis_func_file'],
-                    file_paths['spectra_file'],
-                    file_paths['substances_emit_file'],
-                    file_paths['substance_names_file'])
+# # Load data from excel files
+# file_paths = config['file_paths']
+# air_trans, basis_funcs, spectra, substances_emit, substance_names = \
+#     load_excel_data(file_paths['air_trans_file'],
+#                     file_paths['basis_func_file'],
+#                     file_paths['spectra_file'],
+#                     file_paths['substances_emit_file'],
+#                     file_paths['substance_names_file'])
 
 
 
 # Start
+basis_func_combs = list(itertools.combinations(config['basis_func_ind_list'], config['num_bf']))
+
 results = []
 
-for temp_K in temp_K_list:
-    basis_func_combs = list(itertools.combinations(range(len(basis_func_ind_list)), num_basis_func))
-    for comb in tqdm(basis_func_combs):
-        sim_params = Sim_Parameters(air_trans=air_trans,
-                                    air_RI=air_RI,
-                                    atm_dist_ratio=atm_dist_ratio,
-                                    basis_funcs=basis_funcs,
+for comb in tqdm(basis_func_combs):
+    for temp_K in get_list_values(config['temp_K_list']):
+        file_paths = config['file_paths']
+        sim_params = Sim_Parameters(air_trans=load_excel_data(file_paths['air_trans_file']),
+                                    air_RI=config['air_refractive_index'],
+                                    atm_dist_ratio=config['atm_dist_ratio'],
+                                    basis_funcs=load_excel_data(file_paths['basis_func_file']),
                                     basis_func_comb=comb,
-                                    substance_ind_list=substance_ind_list,
-                                    spectra=spectra,
-                                    substances_emit=substances_emit,
+                                    substance_ind_list=config['substance_ind_list'],
+                                    spectra=load_excel_data(file_paths['spectra_file']),
+                                    substances_emit=load_excel_data(file_paths['substances_emit_file']),
                                     temp_K=temp_K,
-                                    percentage_step=percentage_step)
+                                    percentage_step=config['percentage_step'])
         dataset = create_dataset(sim_params)
-        for train_noise in train_noise_list:
-            for test_noise in test_noise_list:
-                train_params = Train_Parameters(train_percentage=train_percentage,
-                                                batch_size=batch_size,
-                                                criteria=criteria,
-                                                loss_func_names = loss_func_names,
-                                                learning_rate=learning_rate,
-                                                num_epochs=num_epochs,
-                                                device=device,
-                                                k_fold_flag=k_fold_flag,
-                                                k=k,
-                                                random_flag=random_flag,
-                                                random_seed=random_seed,
-                                                train_noise=train_noise,
-                                                test_noise=test_noise)
-                history, models, best_model_index, avg_test_loss, pred_list, targ_list = train_val_test(dataset, train_params, sim_params)
-                loss_values = dict(zip(loss_func_names, avg_test_loss))
+        for train_noise in get_list_values(config['train_noise']):
+            # for test_noise in get_list_values(config['test_noise']):
+
+            
+
+            # Get criteria from file
+            criteria = []
+            for name in config['loss_func_names']:
+                # Check if the loss function is a custom one or from nn module
+                loss_func_class = getattr(nn, name, None) or globals().get(name)
+                if loss_func_class:
+                    criteria.append(loss_func_class())
+                else:
+                    raise ValueError(f"Loss function {name} not found.")
+
+            train_params = Train_Parameters(num_in=sim_params.basis_funcs.shape[1],
+                                            num_out=sim_params.num_substances,
+                                            train_percentage=config['train_percentage'],
+                                            batch_size=config['batch_size'],
+                                            criteria=criteria,
+                                            loss_func_names = config['loss_func_names'],
+                                            learning_rate=config['learning_rate'],
+                                            num_epochs=config['num_epochs'],
+                                            device=torch.device(config['device']),
+                                            k_fold_flag=config['k_fold_flag'],
+                                            k=config['k'],
+                                            random_flag=config['random_flag'],
+                                            random_seed=config['random_seed'],
+                                            train_noise=train_noise,
+                                            test_noise_list=get_list_values(config['test_noise']))
+
+            history, models, best_model_index, avg_test_loss_dict, pred_list_dict, targ_list_dict = train_val_test(dataset, train_params)
+
+            for test_noise in get_list_values(config['test_noise']):
+                loss_values = dict(zip(config['loss_func_names'], avg_test_loss_dict[test_noise]))
                 row = {
                     'Temperature_K': temp_K,
-                    'Substance Number': len(substance_ind_list),
-                    'Substance Comb': tuple(substance_ind_list),
-                    'Basis Function Number': num_basis_func,
+                    'Substance Number': len(sim_params.substance_ind_list),
+                    'Substance Comb': tuple(sim_params.substance_ind_list),
+                    'Basis Function Number': config['num_bf'],
                     'Basis Function Comb': comb,
                     'Train Noise': train_params.train_noise,
-                    'Test Noise': train_params.test_noise,
+                    'Test Noise': test_noise,
                     **loss_values,
-                    'Best Model': models[best_model_index],
+                    # 'Best Model': models[best_model_index],
                 }
 
 
                 # Calculate 95% confident interval for each substance then take average
-                diff_list = pred_list - targ_list
+                diff_list = pred_list_dict[test_noise] - targ_list_dict[test_noise]
                 perc95_interval = []
-                for i, sub_ind in enumerate(substance_ind_list):
+                for i, sub_ind in enumerate(sim_params.substance_ind_list):
                     data = diff_list[:, i]
                     ae, loce, scalee = stats.skewnorm.fit(data)
                     dist = stats.skewnorm(ae, loce, scalee)
-                    lower_quantile = dist.ppf(0.5-confidence_perc/2)  # Lower quantile covering % of the data
-                    upper_quantile = dist.ppf(0.5+confidence_perc/2)  # Upper quantile covering % of the data
+                    lower_quantile = dist.ppf(0.5-config['confidence']/2)  # Lower quantile covering % of the data
+                    upper_quantile = dist.ppf(0.5+config['confidence']/2)  # Upper quantile covering % of the data
                     interval = upper_quantile - lower_quantile
                     perc95_interval.append(interval)
                     row[f'Substance {sub_ind} skewnorm 95% interval'] = interval
@@ -185,10 +205,10 @@ for temp_K in temp_K_list:
                 #         grouped_diffs.append(grouped_diff)
                 #     return grouped_diffs
                 
-                for i, sub_ind in enumerate(substance_ind_list):
+                for i, sub_ind in enumerate(sim_params.substance_ind_list):
 
                     diff_per_sub = diff_list[:, i]
-                    targ_per_sub = targ_list[:, i]
+                    targ_per_sub = targ_list_dict[test_noise][:, i]
                     # print(len(diff_per_sub))
                     row[f'Substance {sub_ind} avg diff'] = np.mean(np.abs(diff_per_sub))
                     grouped_diffs = group_data(targ_per_sub, diff_per_sub)
@@ -196,30 +216,6 @@ for temp_K in temp_K_list:
                     # Store each value of grouped_diffs in a separate column
                     for group_index, diff_value in enumerate(grouped_diffs):
                         row[f'Substance {sub_ind} Group {group_index}'] = np.mean(np.abs(diff_value))
-
-                    # Leave an empty column for manually adding sparklines in Excel
-                    # row[f'Substance {sub_ind} Sparkline'] = ''
-
-                #     ae, loce, scalee = stats.skewnorm.fit(diff_per_sub)
-                    
-
-                #     # Create a skewed normal distribution object
-                #     dist = stats.skewnorm(ae, loce, scalee)
-
-                #     for confidence_perc in [0.95]:
-                #         # Calculate the quantiles for a specific percentage
-                #         lower_quantile = dist.ppf(0.5-confidence_perc/2)  # Lower quantile covering % of the data
-                #         upper_quantile = dist.ppf(0.5+confidence_perc/2)  # Upper quantile covering % of the data
-                        
-                #         if confidence_perc == 0.95:
-                #             perc95_interval.append(upper_quantile - lower_quantile)
-
-                # perc95_avg = np.mean(perc95_interval)
-                # row[f'AVG skewnorm 95% interval range'] = perc95_avg
-
-
-
-
                     
                 # Append the row to the results list
                 results.append(row)
@@ -227,18 +223,19 @@ for temp_K in temp_K_list:
 # Create a pandas DataFrame from the results list
 df = pd.DataFrame(results)
 df[['Train Noise', 'Test Noise']] = df[['Train Noise', 'Test Noise']].astype(float)
+df[['Substance Comb', 'Basis Function Comb']] = df[['Substance Comb', 'Basis Function Comb']].astype(str)
 
-output_pickle = config['output_folder'] + config['output_file_name'] + '.pkl'
+# output_pickle = config['output_folder'] + config['output_file_name'] + '.pkl'
 output_excel = config['output_folder'] + config['output_file_name'] + '.xlsx'
 
 # Check if the file "loss.pkl" already exists
-if os.path.isfile(output_pickle):
+if os.path.isfile(output_excel):
 
     # If the file exists, load the existing DataFrame from the file
-    df_existing = pd.read_pickle(output_pickle)
+    df_existing = pd.read_excel(output_excel)
 
     # Open the file in binary mode
-    with open(output_pickle, 'w') as f:
+    with open(output_excel, 'w') as f:
         while True:
             try:
                 # Get a lock on the file
@@ -255,10 +252,10 @@ if os.path.isfile(output_pickle):
         df = df.sort_values(by=df.columns[:7].tolist())
 
         # Save the DataFrame to a CSV file "loss.csv"
-        df.to_pickle(output_pickle)
+        # df.to_pickle(output_pickle)
 
         # Drop 'Best Model' column and save to csv
-        df = df.drop(['Best Model'], axis=1)
+        # df = df.drop(['Best Model'], axis=1)
         # df.to_csv(output_csv, index=False)
 
         df.to_excel(output_excel, index=False)  # Save to Excel file
@@ -267,10 +264,10 @@ if os.path.isfile(output_pickle):
         fcntl.flock(f, fcntl.LOCK_UN)
 else:
     # Save the DataFrame to a CSV file "loss.csv"
-    df.to_pickle(output_pickle)
+    # df.to_pickle(output_pickle)
 
     # Drop 'Best Model' column and save to csv
-    df = df.drop(['Best Model'], axis=1)
+    # df = df.drop(['Best Model'], axis=1)
     # df.to_csv(output_csv, index=False)
 
     df.to_excel(output_excel, index=False)  # Save to Excel file

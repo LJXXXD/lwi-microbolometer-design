@@ -1,12 +1,18 @@
+input_file_path: './output/trained_models.pkl'
+
+group_criteria: ['Substance Comb', 'Basis Function Comb', 'Temperature_K']
+target_group: ['(0, 1, 2, 3)', '(0, 1, 4, 6)', 293.15]
+
 substance_ind_list: [0, 1, 2, 3]
 
+# basis_func_ind_list: [0, 1, 2, 3, 4, 5, 6]
 basis_func_ind_list: [0, 1, 2, 3, 4, 5, 6]
-num_bf: 4
+num_bf: 7
 
 temp_K_list: 
   start: 253.15
   stop: 303.15
-  step: 10
+  step: 5
   # Or to use a predefined list, uncomment below:
   values: [293.15]
 
@@ -15,11 +21,11 @@ train_noise:
   stop: 1.0
   step: 0.2
   # Or to use a predefined list, uncomment below:
-  # values: [0]
+  values: [0]
   
 
 test_noise:
-  start: 1.2
+  start: 0
   stop: 2.0
   step: 0.2
   # Or to use a predefined list, uncomment below:
@@ -28,14 +34,14 @@ test_noise:
 
 air_refractive_index: 1
 atm_dist_ratio: 0.11
-percentage_step: 0.02
+percentage_step: 0.1
 
 
 train_percentage: 0.8
-batch_size: 2000
+batch_size: 100
 loss_func_names: ['L1Loss', 'MSELoss']
 learning_rate: 2.0e-3
-num_epochs: 300
+num_epochs: 200
 device: cpu
 k_fold_flag: true
 k: 5
@@ -52,5 +58,5 @@ file_paths:
   substances_emit_file: './data/Test 3 - 4 White Powers/white_powders.xlsx'
   substance_names_file: './data/Test 3 - 4 White Powers/white_powders_names.xlsx'
 
-output_folder: './'
-output_file_name: 'loss_4_2_2024'
+output_folder: './output'
+output_file_name: 'test_with_trained_models_test_noise'
