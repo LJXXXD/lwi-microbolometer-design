@@ -27,19 +27,18 @@ class Dataset(torch.utils.data.Dataset):
     
 
 
-
 class NoisyDataset(Dataset):
-    def __init__(self, clean_dataset, max_noise):
+    def __init__(self, clean_dataset, noise_level):
 
         super(Dataset, self).__init__()
 
         self.clean_dataset = clean_dataset
-        self.max_noise = max_noise
+        self.noise_level = noise_level
         self.dataset = []
                
         for sample in self.clean_dataset:
             x = sample[0]
-            noisy_x = self.add_noise(x, self.max_noise)
+            noisy_x = self.add_noise(x, self.noise_level)
 
             noisy_sample = (noisy_x.float().to(torch.float32), sample[1])
 
@@ -51,13 +50,48 @@ class NoisyDataset(Dataset):
     def __len__(self):
         return len(self.dataset)
     
-    def add_noise(self, x, max_noise):
-        if max_noise == 0:
+    def add_noise(self, x, noise_level):
+        if noise_level == 0:
             return x
         else:
-            noise = np.random.uniform(-max_noise, max_noise, size=x.shape)
+            noise = noise_level * np.random.normal(size=x.shape)
             noisy_x = x + noise
+
             return noisy_x
+    
+
+
+
+# class NoisyDataset_Old(Dataset):
+#     def __init__(self, clean_dataset, max_noise):
+
+#         super(Dataset, self).__init__()
+
+#         self.clean_dataset = clean_dataset
+#         self.max_noise = max_noise
+#         self.dataset = []
+               
+#         for sample in self.clean_dataset:
+#             x = sample[0]
+#             noisy_x = self.add_noise(x, self.max_noise)
+
+#             noisy_sample = (noisy_x.float().to(torch.float32), sample[1])
+
+#             self.dataset.append(noisy_sample)
+
+#     def __getitem__(self, index):
+#         return self.dataset[index]
+
+#     def __len__(self):
+#         return len(self.dataset)
+    
+#     def add_noise(self, x, max_noise):
+#         if max_noise == 0:
+#             return x
+#         else:
+#             noise = np.random.uniform(-max_noise, max_noise, size=x.shape)
+#             noisy_x = x + noise
+#             return noisy_x
 
 
 

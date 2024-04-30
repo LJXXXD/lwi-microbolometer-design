@@ -35,8 +35,10 @@ class Sim_Parameters:
 
 
 class Train_Parameters:
-    def __init__(self, train_percentage, batch_size, criteria, loss_func_names, learning_rate, num_epochs, device, k_fold_flag, k, random_flag, random_seed, train_noise, test_noise):
-        self.train_percentage = train_percentage
+    def __init__(self, num_in, num_out, train_percentage, batch_size, criteria, loss_func_names, learning_rate, num_epochs, device, k_fold_flag, k, random_flag, random_seed, train_noise, test_noise_list):
+        self.num_in = num_in
+        self.num_out = num_out
+        # self.train_percentage = train_percentage
         self.batch_size = batch_size
         self.criteria = criteria
         self.loss_func_names = loss_func_names
@@ -47,6 +49,6 @@ class Train_Parameters:
         self.k = k
         self.random_flag = random_flag
         self.random_seed = random_seed
-        self.train_noise = train_noise
-        self.test_noise = test_noise
+        # self.train_noise = train_noise
+        # self.test_noise_list = test_noise_list
         # self.test_aggregation = test_aggregation

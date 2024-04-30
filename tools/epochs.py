@@ -9,8 +9,6 @@ def train_epoch(model, device, dataloader, criterions, optimizer):
     train_loss = [0 for criterion in criterions]
     model.train()
     
-    
-    
     for samples, labels in dataloader:
         samples, labels = samples.to(device), labels.to(device)
         
@@ -62,8 +60,8 @@ def valid_epoch(model, device, dataloader, criterions):
 
 
 
-def test_epoch(model, device, dataloader, criterions):
-    test_loss = [0 for criterion in criterions]
+def test_epoch(model, device, dataloader, criteria):
+    test_loss = [0 for criterion in criteria]
     # test_loss = np.zeros((len(dataloader.dataset), len(criterions)))
     pred_list = []
     targ_list = []
@@ -76,13 +74,14 @@ def test_epoch(model, device, dataloader, criterions):
         
         output = model(samples)
 
-        # print("test output", output)
-        # print("test target", labels)
+        print("test output", output)
+        print("test target", labels)
+        print()
         
         pred_list.append(output.detach().numpy())
         targ_list.append(labels.detach().numpy())
         
-        for cri_ind, criterion in enumerate(criterions):
+        for cri_ind, criterion in enumerate(criteria):
             loss = criterion(output, labels)
             test_loss[cri_ind] += loss.item() * samples.size(0)
             # test_loss[batch_ind, cri_ind] = loss
