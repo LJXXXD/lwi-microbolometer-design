@@ -20,6 +20,31 @@ for x, y in zip(updated_x_values, updated_y_values):
     filtered_additional_data['x'].append(x)
     filtered_additional_data['y'].append(y)
 
+
+
+
+
+
+
+# Updated 'x' and 'y' values for the "additional data"
+updated_x_values2 = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2]
+updated_y_values2 = [0.088691144, 0.105641957, 0.164653718, 0.199157117, 0.229322152, 0.262199698, 0.284840293, 0.380257524, 0.379928152, 0.416239978, 0.495952731, 0.438970835, 0.48842891, 0.646635919, 0.625056428, 0.728760298, 0.694273336, 0.778641971, 0.806355692, 0.932803464, 1.046286393, 1.222710326, 1.080329662, 1.24754951, 1.343230295, 1.408438464, 1.603516894, 1.291380688, 1.254246037, 1.708402439, 1.444735155, 1.669353697, 1.531317854, 2.560897096, 2.168019821, 2.518866929, 8.03980356, 2.047206821, 2.880972839, 2.396591002, 2.532696809]
+
+# Filtering the additional data to only include x-values up to 0.8
+filtered_additional_data2 = {'x': [], 'y': []}
+for x, y in zip(updated_x_values2, updated_y_values2):
+    # if x <= :
+    filtered_additional_data2['x'].append(x)
+    filtered_additional_data2['y'].append(y)
+
+
+
+
+
+
+
+
+
 # Plotting
 plt.figure(figsize=(8, 6))
 plt.title("Updated NN V.S. Analytical")
@@ -38,9 +63,18 @@ for i, train_noise in enumerate([0]):
 # Plot the filtered additional data with updated legend name
 plt.plot(filtered_additional_data["x"], filtered_additional_data["y"], label="Analytical", color='r')  # Magenta for analytical data
 
+
+
+
+# Plot the filtered additional data with updated legend name
+plt.plot(filtered_additional_data2["x"], filtered_additional_data2["y"], label="Updated Analytical (100 sampless)", color='b')  # Magenta for analytical data
+
+
+
+
 # Setting the y-axis limit
 # plt.xlim(0, 2)
-plt.ylim(0, 0.5)
+plt.ylim(0, 2)
 
 # Adding legend
 plt.legend()
