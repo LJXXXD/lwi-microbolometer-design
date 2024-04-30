@@ -19,17 +19,17 @@ def create_dataset(sim_params):
         labels.append(weights)
 
     # Convert the list to a NumPy array
-    data_array = np.array(data)
+    # data_array = np.array(data)
 
     # Calculate mean and standard deviation along axis 0 (across the 4 values)
-    mean_values = np.mean(data_array, axis=0)
-    std_values = np.std(data_array, axis=0)
+    # mean_values = np.mean(data_array, axis=0)
+    # std_values = np.std(data_array, axis=0)
 
-    # Normalize each item in the list
-    normalized_data = [(item - mean_values) / std_values for item in data]
+    # # Normalize each item in the list
+    # normalized_data = [(item - mean_values) / std_values for item in data]
 
-    # If you want to convert the normalized data back to a list
-    normalized_data_list = [item.tolist() for item in normalized_data]
+    # # If you want to convert the normalized data back to a list
+    # normalized_data_list = [item.tolist() for item in normalized_data]
 
     # print(mean_values, std_values)
         
