@@ -73,10 +73,6 @@ def test_epoch(model, device, dataloader, criteria):
         samples, labels = samples.to(device), labels.to(device)
         
         output = model(samples)
-
-        print("test output", output)
-        print("test target", labels)
-        print()
         
         pred_list.append(output.detach().numpy())
         targ_list.append(labels.detach().numpy())
