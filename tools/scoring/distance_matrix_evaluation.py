@@ -2,6 +2,27 @@
 import numpy as np
 
 
+def min_based_dissimilarity_score(distance_matrix):
+    """
+    Computes a dissimilarity score based purely on the minimum value of the SAM distance matrix.
+    The larger the minimum value, the better the separation between the closest pair of substances.
+
+    Parameters:
+    - distance_matrix (2D array): Pairwise SAM distance matrix (shape = (n, n)).
+
+    Returns:
+    - score (float): The minimum off-diagonal distance (largest among worst-case pairs).
+    """
+    n = distance_matrix.shape[0]
+    # Extract off-diagonal values (exclude diagonal elements)
+    off_diag_values = distance_matrix[~np.eye(n, dtype=bool)]
+    
+    # Find the minimum distance among all pairs
+    min_distance = np.min(off_diag_values)
+    
+    return min_distance
+
+
 def mean_min_based_dissimilarity_score(distance_matrix, alpha=1.0):
     """
     Computes a dissimilarity score based on the mean and minimum values

@@ -183,7 +183,7 @@ def simulate_sensor_output(wavelengths, substances_emissivity, basis_functions, 
 #     return A_matrix
 
 
-def visualize_sensor_output(sensor_outputs, substances_names=None, basis_funcs_labels=None, fontsize=10):
+def visualize_sensor_output(sensor_outputs, substances_names=None, basis_funcs_labels=None, fontsize=10, figure_size=(8, 6)):
     """
     Visualizes sensor outputs as curves for different substances.
 
@@ -202,7 +202,7 @@ def visualize_sensor_output(sensor_outputs, substances_names=None, basis_funcs_l
     x = np.arange(1, m + 1)
 
     # Create the plot
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=figure_size)
 
     # Plot each substance's sensor output as a curve
     for i in range(n):
@@ -212,7 +212,7 @@ def visualize_sensor_output(sensor_outputs, substances_names=None, basis_funcs_l
     # Add labels, title, and legend
     plt.xlabel("Basis Function Index", fontsize=fontsize)
     plt.ylabel("Sensor Output Values (Volt)", fontsize=fontsize)
-    plt.title("Comparison of Substances Using Selected Basis Functions (Microbolometers)", fontsize=fontsize + 2, fontweight="bold")
+    # plt.title("Comparison of Substances Using Selected Basis Functions (Microbolometers)", fontsize=fontsize + 2, fontweight="bold")
     plt.legend(loc="best", fontsize=fontsize)
 
     # Optionally label x-ticks with basis function labels
