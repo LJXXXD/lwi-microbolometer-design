@@ -1,0 +1,174 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lwi-microbolometer-design"
+version = "0.1.0"
+description = "Infrared microbolometer sensor design and optimization tools for LWI program"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "LJ", email = "j.li@missouri.edu"},
+]
+keywords = [
+    "microbolometer",
+    "infrared sensors",
+    "sensor design",
+    "spectral analysis",
+    "genetic algorithm",
+    "optimization",
+    "substance detection",
+    "thermal imaging",
+    "sensor simulation",
+    "LWI",
+    "sensor optimization",
+    "spectral angle mapper",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+dependencies = [
+    "numpy>=2.3.3",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "matplotlib>=3.10.6",
+    "seaborn>=0.13.2",
+    "openpyxl>=3.1.5",
+    "scipy>=1.16.2",
+    "pygad>=3.5.0",
+    "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    # -- Core Analysis & Notebook Environment --
+    "jupyter>=1.1.1",
+    "jupyterlab>=4.4.9",
+
+    # -- Testing Framework --
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",       # For generating test coverage reports
+
+    # -- Code Quality & Automation --
+    "ruff>=0.14.0",            # The super-fast linter (replaces flake8)
+    "mypy>=1.18.2",            # The strict static type checker
+    "pre-commit>=4.3.0",       # The automation manager for all the tools above
+
+    # -- Versioning --
+    "bump-my-version>=1.2.4",  # For automating version number updates
+
+    # -- Type Stubs (to make mypy smarter) --
+    "pandas-stubs>=2.3.2.250926",  # Provides detailed type hints for pandas
+    "data-science-types>=0.2.23",  # Provides type hints for numpy, matplotlib, etc.
+    "types-openpyxl>=3.1.5.20250919",  # Provides type hints for openpyxl
+]
+all = [
+    "lwi-microbolometer-design[dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/LJXXXD/lwi-microbolometer-design"
+Repository = "https://github.com/LJXXXD/lwi-microbolometer-design.git"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["A", "ARG", "B", "C4", "D", "E", "F", "I", "N", "PL", "RUF", "S", "SIM", "T20", "UP"]
+ignore = ["PLR0913"]  # Allow functions with >5 args (common in scientific/GA code)
+# A curated set of rules:
+# A: flake8-builtins (prevent shadowing built-ins like "list" or "dict")
+# ARG: flake8-unused-arguments (flag unused function arguments)
+# B: flake8-bugbear (likely bugs and design issues)
+# C4: flake8-comprehensions (promotes more Pythonic list/dict/set comprehensions)
+# D: pydocstyle (require docstrings; NumPy style configured below)
+# E: pycodestyle errors
+# F: Pyflakes (detects unused imports, undefined names, etc.)
+# I: isort rules (ruff can handle import sorting directly)
+# N: pep8-naming (enforce naming conventions)
+# PL: Pylint rules (via Ruff)
+# RUF: Ruff-specific rules
+# S: bandit security checks
+# SIM: flake8-simplify (encourage simpler code patterns)
+# T20: flake8-print (discourage print statements)
+# UP: pyupgrade (suggest modern Python syntax)
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+# Match Black's formatting style
+quote-style = "single"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/lwi_microbolometer_design",
+    "--cov-report=term-missing",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+disable_error_code = ["import-untyped"]
+
+[tool.bumpversion]
+current_version = "0.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+commit = true
+tag = true
+message = "CHORE: Release version {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/lwi_microbolometer_design/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
