@@ -16,7 +16,7 @@ repos:
     rev: v0.14.0
     hooks:
       - id: ruff-format  # Format first
-      - id: ruff         # Then lint
+      - id: ruff-check   # Then lint
         args: [--fix, --exit-non-zero-on-fix]
 
   # MyPy - Type checking

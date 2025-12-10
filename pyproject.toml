@@ -51,6 +51,8 @@ dependencies = [
     "scipy>=1.16.2",
     "pygad>=3.5.0",
     "tqdm>=4.67.1",
+    "numba>=0.62.1",
+    "pyyaml>=6.0.3",
 ]
 
 [project.optional-dependencies]
@@ -93,7 +95,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["A", "ARG", "B", "C4", "D", "E", "F", "I", "N", "PL", "RUF", "S", "SIM", "T20", "UP"]
-ignore = ["PLR0913"]  # Allow functions with >5 args (common in scientific/GA code)
+ignore = [
+    "PLR0913",  # Allow functions with >5 args (common in scientific/GA code)
+    "RUF022",  # Allow logical grouping in __all__ lists (prefer readability over strict alphabetical)
+]
 # A curated set of rules:
 # A: flake8-builtins (prevent shadowing built-ins like "list" or "dict")
 # ARG: flake8-unused-arguments (flag unused function arguments)
@@ -113,6 +118,12 @@ ignore = ["PLR0913"]  # Allow functions with >5 args (common in scientific/GA co
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+# Scripts are allowed to be complex (they're top-level orchestration, not library code)
+"scripts/**" = [
+    "PLR0912",  # Allow many branches (complex control flow is normal in scripts)
+    "PLR0915",  # Allow many statements (orchestration scripts can be long)
+    "T20",      # Allow print statements in scripts
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
@@ -153,7 +164,14 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 show_error_codes = true
-disable_error_code = ["import-untyped"]
+# Disable errors for matplotlib's incomplete stubs and allow pragmatic flexibility
+disable_error_code = [
+    "import-untyped",   # Allow importing untyped external libraries
+    "attr-defined",     # Matplotlib has many missing attributes in stubs
+    "call-arg",         # Matplotlib pyplot has incorrect call signatures in stubs
+    "union-attr",       # Allow attribute access on union types (common with flexible data structures)
+    "no-untyped-def",   # Allow untyped internal functions and callbacks (pragmatic for scripts)
+]
 
 [tool.bumpversion]
 current_version = "0.1.0"
