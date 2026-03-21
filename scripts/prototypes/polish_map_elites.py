@@ -144,7 +144,7 @@ def run_map_elites_quick(
     grid_resolution: int = 20,
     mu_range: tuple[float, float] = (4.0, 20.0),
     num_initial: int = 1000,
-    num_iterations: int = 200000,
+    num_iterations: int = 2000,
     random_seed: int = 42,
 ) -> dict[tuple[int, int], dict[str, Any]]:
     """Run MAP-Elites to get top elites (reuse logic from run_map_elites.py)."""

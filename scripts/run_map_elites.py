@@ -7,6 +7,7 @@ Instead of converging to a single peak, it illuminates the entire design space.
 """
 
 import multiprocessing as mp
+import pickle
 from pathlib import Path
 from typing import Any
 
@@ -206,7 +207,7 @@ def mutate_chromosome(
             # Clip to bounds
             child[i] = max(low, min(high, child[i]))
 
-        return child
+    return child
 
 
 def run_map_elites(
@@ -314,6 +315,10 @@ def run_map_elites(
             )
 
     print(f"\nMAP-Elites complete: {len(archive)}/{grid_resolution * grid_resolution} cells filled")
+    archive_path = Path("results/map_elites_archive.pkl")
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    with archive_path.open("wb") as f:
+        pickle.dump(archive, f)
     return archive
 
 
