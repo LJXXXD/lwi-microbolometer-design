@@ -2,14 +2,19 @@
 # Project-Specific .gitignore
 # -----------------------------------------------------------------------------
 
-# Large datasets and generated outputs (excluded from Git)
+# Large datasets and generated outputs
 /data/
 /results/
+/outputs/
+/output/
 
 # Model checkpoints and HDF5 datasets
 *.pth
 *.h5
 *.hdf5
+
+# Serialized pickles (generated results / cached artifacts)
+*.pkl
 
 # Excel spreadsheets
 *.xlsx

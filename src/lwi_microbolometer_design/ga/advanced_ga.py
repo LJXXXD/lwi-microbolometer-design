@@ -136,31 +136,31 @@ class AdvancedGA(pygad.GA):
             if self.niching_config.use_optimal_pairing:
                 # Check if Numba acceleration is available
                 numba_status = (
-                    'Numba-accelerated' if NUMBA_AVAILABLE else 'sequential (Numba not available)'
+                    "Numba-accelerated" if NUMBA_AVAILABLE else "sequential (Numba not available)"
                 )
                 logger.info(
-                    'Advanced GA initialized with niching enabled '
-                    f'(sigma_share={self.niching_config.sigma_share}, '
-                    f'alpha={self.niching_config.alpha}, '
-                    f'optimal_pairing=True, '
-                    f'params_per_group={self.niching_config.params_per_group}, '
-                    f'metric={self.niching_config.optimal_pairing_metric}, '
-                    f'mode={numba_status})'
+                    "Advanced GA initialized with niching enabled "
+                    f"(sigma_share={self.niching_config.sigma_share}, "
+                    f"alpha={self.niching_config.alpha}, "
+                    f"optimal_pairing=True, "
+                    f"params_per_group={self.niching_config.params_per_group}, "
+                    f"metric={self.niching_config.optimal_pairing_metric}, "
+                    f"mode={numba_status})"
                 )
                 if not NUMBA_AVAILABLE:
                     logger.warning(
-                        'Numba not available - optimal pairing will run ~2x slower. '
-                        'Install numba for better performance: pip install numba'
+                        "Numba not available - optimal pairing will run ~2x slower. "
+                        "Install numba for better performance: pip install numba"
                     )
             else:
                 logger.info(
-                    'Advanced GA initialized with niching enabled '
-                    f'(sigma_share={self.niching_config.sigma_share}, '
-                    f'alpha={self.niching_config.alpha}, '
-                    f'metric={self.niching_config.distance_metric})'
+                    "Advanced GA initialized with niching enabled "
+                    f"(sigma_share={self.niching_config.sigma_share}, "
+                    f"alpha={self.niching_config.alpha}, "
+                    f"metric={self.niching_config.distance_metric})"
                 )
         else:
-            logger.info('Advanced GA initialized without niching (standard PyGAD behavior)')
+            logger.info("Advanced GA initialized without niching (standard PyGAD behavior)")
 
         # Call PyGAD constructor with all required and optional args
         super().__init__(
@@ -188,7 +188,7 @@ class AdvancedGA(pygad.GA):
             Shared fitness scores (original fitness / niche_count)
         """
         if not self.niching_config or not self.niching_config.enabled:
-            msg = 'Method should only be called when niching is enabled'
+            msg = "Method should only be called when niching is enabled"
             raise RuntimeError(msg)
 
         # Store original fitness for elitism
@@ -210,11 +210,15 @@ class AdvancedGA(pygad.GA):
             niche_count = 1.0  # Start with self
             for j in range(self.sol_per_pop):
                 if i != j:
-                    niche_count += niche_sharing_coefficient(
+                    sharing_coeff = niche_sharing_coefficient(
                         distance_matrix[i, j],
                         self.niching_config.sigma_share,
                         self.niching_config.alpha,
                     )
+                    niche_count += sharing_coeff
+            # DEBUG: Verify niching penalty is being applied
+            penalty = 1.0 / niche_count
+            print(f"DEBUG: Niching penalty applied: {penalty:.6f} (niche_count={niche_count:.6f})")
 
             # Divide fitness by niche count (crowded solutions get penalized)
             shared_fitness[i] = self.original_fitness_scores[i] / niche_count
@@ -282,43 +286,43 @@ class AdvancedGA(pygad.GA):
         """
         # ===== PROGRESS TRACKING =====
         stats = {
-            'generation': self.generations_completed,
-            'total_generations': self.num_generations,
-            'progress': (
+            "generation": self.generations_completed,
+            "total_generations": self.num_generations,
+            "progress": (
                 self.generations_completed / self.num_generations if self.num_generations > 0 else 0
             ),
         }
 
         # ===== POPULATION CONFIGURATION =====
-        stats['population'] = {
-            'size': self.sol_per_pop,
-            'num_parents_mating': self.num_parents_mating,
-            'num_genes': self.num_genes,
+        stats["population"] = {
+            "size": self.sol_per_pop,
+            "num_parents_mating": self.num_parents_mating,
+            "num_genes": self.num_genes,
         }
 
         # ===== CURRENT GENERATION FITNESS =====
-        if hasattr(self, 'last_generation_fitness') and self.last_generation_fitness is not None:
-            stats['fitness'] = {
-                'best': float(np.max(self.last_generation_fitness)),
-                'worst': float(np.min(self.last_generation_fitness)),
-                'mean': float(np.mean(self.last_generation_fitness)),
-                'std': float(np.std(self.last_generation_fitness)),
+        if hasattr(self, "last_generation_fitness") and self.last_generation_fitness is not None:
+            stats["fitness"] = {
+                "best": float(np.max(self.last_generation_fitness)),
+                "worst": float(np.min(self.last_generation_fitness)),
+                "mean": float(np.mean(self.last_generation_fitness)),
+                "std": float(np.std(self.last_generation_fitness)),
             }
 
         # ===== BEST SOLUTION EVER FOUND =====
         # Tracks the best fitness across ALL generations (not just current)
-        if hasattr(self, 'best_solutions_fitness') and len(self.best_solutions_fitness) > 0:
+        if hasattr(self, "best_solutions_fitness") and len(self.best_solutions_fitness) > 0:
             best_fitness_ever = float(np.max(self.best_solutions_fitness))
             best_gen = int(np.argmax(self.best_solutions_fitness))
-            stats['best_solution'] = {
-                'fitness': best_fitness_ever,
-                'generation_found': best_gen,
-                'current_generation_best': float(self.best_solutions_fitness[-1]),
+            stats["best_solution"] = {
+                "fitness": best_fitness_ever,
+                "generation_found": best_gen,
+                "current_generation_best": float(self.best_solutions_fitness[-1]),
             }
 
         # ===== POPULATION DIVERSITY =====
         # Measures genetic diversity in the population (convergence indicator)
-        if hasattr(self, 'population') and self.population is not None:
+        if hasattr(self, "population") and self.population is not None:
             # Per-gene standard deviation
             population_std = np.std(self.population, axis=0)
 
@@ -332,65 +336,65 @@ class AdvancedGA(pygad.GA):
             # Normalized diversity (scale-independent metric)
             normalized_std = population_std / gene_ranges
 
-            stats['diversity'] = {
-                'mean_gene_std': float(np.mean(population_std)),
-                'normalized_mean_std': float(np.mean(normalized_std)),
-                'min_gene_std': float(np.min(population_std)),
-                'max_gene_std': float(np.max(population_std)),
+            stats["diversity"] = {
+                "mean_gene_std": float(np.mean(population_std)),
+                "normalized_mean_std": float(np.mean(normalized_std)),
+                "min_gene_std": float(np.min(population_std)),
+                "max_gene_std": float(np.max(population_std)),
             }
 
         # ===== GA CONFIGURATION =====
         # Extract operator names (handle custom functions gracefully)
-        mutation_type_str = self.mutation_type if hasattr(self, 'mutation_type') else None
+        mutation_type_str = self.mutation_type if hasattr(self, "mutation_type") else None
         if callable(mutation_type_str):
-            mutation_type_str = getattr(mutation_type_str, '__name__', 'custom_function')
+            mutation_type_str = getattr(mutation_type_str, "__name__", "custom_function")
 
-        crossover_type_str = self.crossover_type if hasattr(self, 'crossover_type') else None
+        crossover_type_str = self.crossover_type if hasattr(self, "crossover_type") else None
         if callable(crossover_type_str):
-            crossover_type_str = getattr(crossover_type_str, '__name__', 'custom_function')
+            crossover_type_str = getattr(crossover_type_str, "__name__", "custom_function")
 
-        stats['config'] = {
-            'parent_selection': self.parent_selection_type,
-            'crossover_type': crossover_type_str,
-            'mutation_type': mutation_type_str,
-            'keep_elitism': self.keep_elitism if hasattr(self, 'keep_elitism') else 0,
+        stats["config"] = {
+            "parent_selection": self.parent_selection_type,
+            "crossover_type": crossover_type_str,
+            "mutation_type": mutation_type_str,
+            "keep_elitism": self.keep_elitism if hasattr(self, "keep_elitism") else 0,
         }
 
         # ===== NICHING STATISTICS =====
         # Only populated when fitness sharing is enabled
         if self.niching_config and self.niching_config.enabled:
-            stats['niching'] = {
-                'enabled': True,
-                'sigma_share': self.niching_config.sigma_share,
-                'alpha': self.niching_config.alpha,
-                'distance_metric': self.niching_config.distance_metric,
-                'use_optimal_pairing': self.niching_config.use_optimal_pairing,
+            stats["niching"] = {
+                "enabled": True,
+                "sigma_share": self.niching_config.sigma_share,
+                "alpha": self.niching_config.alpha,
+                "distance_metric": self.niching_config.distance_metric,
+                "use_optimal_pairing": self.niching_config.use_optimal_pairing,
             }
 
             # Add optimal pairing parameters if enabled
             if self.niching_config.use_optimal_pairing:
-                stats['niching']['params_per_group'] = self.niching_config.params_per_group
-                stats['niching']['optimal_pairing_metric'] = (
+                stats["niching"]["params_per_group"] = self.niching_config.params_per_group
+                stats["niching"]["optimal_pairing_metric"] = (
                     self.niching_config.optimal_pairing_metric
                 )
-                stats['niching']['numba_accelerated'] = NUMBA_AVAILABLE
+                stats["niching"]["numba_accelerated"] = NUMBA_AVAILABLE
 
             # Original fitness (before sharing)
             if self.original_fitness_scores is not None:
-                stats['niching']['original_fitness'] = {
-                    'best': float(np.max(self.original_fitness_scores)),
-                    'worst': float(np.min(self.original_fitness_scores)),
-                    'mean': float(np.mean(self.original_fitness_scores)),
-                    'std': float(np.std(self.original_fitness_scores)),
+                stats["niching"]["original_fitness"] = {
+                    "best": float(np.max(self.original_fitness_scores)),
+                    "worst": float(np.min(self.original_fitness_scores)),
+                    "mean": float(np.mean(self.original_fitness_scores)),
+                    "std": float(np.std(self.original_fitness_scores)),
                 }
 
             # Shared fitness (after niching penalty)
             if self.shared_fitness_scores is not None:
-                stats['niching']['shared_fitness'] = {
-                    'best': float(np.max(self.shared_fitness_scores)),
-                    'worst': float(np.min(self.shared_fitness_scores)),
-                    'mean': float(np.mean(self.shared_fitness_scores)),
-                    'std': float(np.std(self.shared_fitness_scores)),
+                stats["niching"]["shared_fitness"] = {
+                    "best": float(np.max(self.shared_fitness_scores)),
+                    "worst": float(np.min(self.shared_fitness_scores)),
+                    "mean": float(np.mean(self.shared_fitness_scores)),
+                    "std": float(np.std(self.shared_fitness_scores)),
                 }
 
                 # Fitness sharing impact metric
@@ -399,9 +403,9 @@ class AdvancedGA(pygad.GA):
                         self.shared_fitness_scores
                         / (self.original_fitness_scores + np.finfo(float).eps)
                     )
-                    stats['niching']['avg_sharing_penalty'] = float(1.0 - sharing_ratio)
+                    stats["niching"]["avg_sharing_penalty"] = float(1.0 - sharing_ratio)
         else:
-            stats['niching'] = {'enabled': False}
+            stats["niching"] = {"enabled": False}
 
         return stats
 
@@ -447,9 +451,9 @@ class NichingConfig:
     # Optional parameters with sensible defaults
     sigma_share: float = 1.0
     alpha: float = 1.0
-    distance_metric: str = 'euclidean'
+    distance_metric: str = "euclidean"
     params_per_group: int = 2
-    optimal_pairing_metric: str = 'euclidean'
+    optimal_pairing_metric: str = "euclidean"
 
     def __post_init__(self) -> None:
         """Validate configuration values.
@@ -457,16 +461,16 @@ class NichingConfig:
         Ensures positive parameters and supported metric choices.
         """
         if self.sigma_share <= 0:
-            msg = 'sigma_share must be > 0'
+            msg = "sigma_share must be > 0"
             raise ValueError(msg)
         if self.alpha <= 0:
-            msg = 'alpha must be > 0'
+            msg = "alpha must be > 0"
             raise ValueError(msg)
-        if not self.use_optimal_pairing and self.distance_metric not in {'euclidean'}:
+        if not self.use_optimal_pairing and self.distance_metric not in {"euclidean"}:
             msg = f"Unsupported distance_metric: {self.distance_metric!r}. Supported: 'euclidean'"
             raise ValueError(msg)
         if self.use_optimal_pairing and self.params_per_group <= 0:
-            msg = 'params_per_group must be > 0 when using optimal pairing'
+            msg = "params_per_group must be > 0 when using optimal pairing"
             raise ValueError(msg)
 
 
@@ -502,7 +506,7 @@ def niche_sharing_coefficient(distance: float, sigma_share: float, alpha: float 
 def compute_chromosome_distance(
     chromosome_a: np.ndarray,
     chromosome_b: np.ndarray,
-    metric: str = 'euclidean',
+    metric: str = "euclidean",
 ) -> float:
     """Compute distance between two chromosomes.
 
@@ -518,8 +522,8 @@ def compute_chromosome_distance(
     float
         Distance between chromosomes
     """
-    if metric == 'euclidean':
+    if metric == "euclidean":
         distance = norm(chromosome_a - chromosome_b)
         return float(distance)
-    msg = f'Unknown distance metric: {metric!r}'
+    msg = f"Unknown distance metric: {metric!r}"
     raise ValueError(msg)

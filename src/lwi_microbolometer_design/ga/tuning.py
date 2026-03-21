@@ -66,7 +66,7 @@ class GenerationTracker:
         diversity = calculate_population_diversity(ga_instance.population)
         self.diversity_history.append(diversity)
 
-        if hasattr(ga_instance, 'best_solutions_fitness') and ga_instance.best_solutions_fitness:
+        if hasattr(ga_instance, "best_solutions_fitness") and ga_instance.best_solutions_fitness:
             self.best_fitness_history.append(float(ga_instance.best_solutions_fitness[-1]))
         else:
             self.best_fitness_history.append(float(np.max(ga_instance.last_generation_fitness)))
@@ -205,27 +205,27 @@ def run_single_configuration(
         # Build GA config using create_ga_config() helper
         # Extract parameters from config_dict, using defaults if missing
         ga_config = create_ga_config(
-            num_generations=config_dict.get('num_generations', 2000),
-            num_parents_mating=config_dict.get('num_parents_mating', 50),
-            sol_per_pop=config_dict.get('sol_per_pop', 200),
-            parent_selection_type=config_dict.get('parent_selection_type', 'tournament'),
-            K_tournament=config_dict.get('K_tournament', 3),
-            keep_elitism=config_dict.get('keep_elitism', 5),
-            crossover_type=config_dict.get('crossover_type', 'uniform'),
-            crossover_probability=config_dict.get('crossover_probability', 0.8),
+            num_generations=config_dict.get("num_generations", 2000),
+            num_parents_mating=config_dict.get("num_parents_mating", 50),
+            sol_per_pop=config_dict.get("sol_per_pop", 200),
+            parent_selection_type=config_dict.get("parent_selection_type", "tournament"),
+            K_tournament=config_dict.get("K_tournament", 3),
+            keep_elitism=config_dict.get("keep_elitism", 5),
+            crossover_type=config_dict.get("crossover_type", "uniform"),
+            crossover_probability=config_dict.get("crossover_probability", 0.8),
             mutation_type=diversity_preserving_mutation,  # Use custom mutation
-            mutation_probability=config_dict.get('mutation_probability', 0.1),
+            mutation_probability=config_dict.get("mutation_probability", 0.1),
             save_best_solutions=True,
-            stop_criteria=config_dict.get('stop_criteria', 'saturate_200'),
-            niching_enabled=config_dict.get('niching_enabled', True),
-            niching_use_optimal_pairing=config_dict.get('niching_use_optimal_pairing', True),
+            stop_criteria=config_dict.get("stop_criteria", "saturate_200"),
+            niching_enabled=config_dict.get("niching_enabled", True),
+            niching_use_optimal_pairing=config_dict.get("niching_use_optimal_pairing", True),
             niching_params_per_group=config_dict.get(
-                'niching_params_per_group', params_per_basis_function
+                "niching_params_per_group", params_per_basis_function
             ),
-            niching_sigma_share=config_dict.get('niching_sigma_share', 0.5),
-            niching_alpha=config_dict.get('niching_alpha', 0.5),
+            niching_sigma_share=config_dict.get("niching_sigma_share", 0.5),
+            niching_alpha=config_dict.get("niching_alpha", 0.5),
             niching_optimal_pairing_metric=config_dict.get(
-                'niching_optimal_pairing_metric', 'euclidean'
+                "niching_optimal_pairing_metric", "euclidean"
             ),
             random_seed=random_seed,
         )
@@ -235,10 +235,10 @@ def run_single_configuration(
 
         # Add runtime-specific parameters
         ga_params = ga_config.copy()
-        ga_params['num_genes'] = len(gene_space)
-        ga_params['gene_space'] = gene_space
-        ga_params['fitness_func'] = fitness_func
-        ga_params['on_generation'] = tracker.on_generation
+        ga_params["num_genes"] = len(gene_space)
+        ga_params["gene_space"] = gene_space
+        ga_params["fitness_func"] = fitness_func
+        ga_params["on_generation"] = tracker.on_generation
 
         # Create and run GA
         ga = AdvancedGA(**ga_params)
@@ -330,8 +330,8 @@ class HyperparameterTuner:
         self.fitness_threshold = fitness_threshold
         self.max_workers = max_workers or mp.cpu_count()
 
-        logger.info(f'Initialized HyperparameterTuner with {self.max_workers} workers')
-        logger.info(f'Will run {num_runs} independent runs per configuration')
+        logger.info(f"Initialized HyperparameterTuner with {self.max_workers} workers")
+        logger.info(f"Will run {num_runs} independent runs per configuration")
 
     def generate_configurations(self) -> list[dict[str, Any]]:
         """Generate all possible hyperparameter configurations."""
@@ -339,14 +339,14 @@ class HyperparameterTuner:
 
         # Core parameters from HyperparameterSearchSpace
         param_names = [
-            'sol_per_pop',
-            'num_generations',
-            'num_parents_mating',
-            'mutation_probability',
-            'crossover_probability',
-            'keep_elitism',
-            'niching_enabled',
-            'niching_sigma_share',
+            "sol_per_pop",
+            "num_generations",
+            "num_parents_mating",
+            "mutation_probability",
+            "crossover_probability",
+            "keep_elitism",
+            "niching_enabled",
+            "niching_sigma_share",
         ]
 
         param_values = [
@@ -362,17 +362,17 @@ class HyperparameterTuner:
 
         # Handle additional optional parameters if they exist in search_space
         # These come from YAML experiment configs
-        if hasattr(self.search_space, 'parent_selection_type'):
-            param_names.append('parent_selection_type')
+        if hasattr(self.search_space, "parent_selection_type"):
+            param_names.append("parent_selection_type")
             param_values.append(self.search_space.parent_selection_type)
-        if hasattr(self.search_space, 'K_tournament'):
-            param_names.append('K_tournament')
+        if hasattr(self.search_space, "K_tournament"):
+            param_names.append("K_tournament")
             param_values.append(self.search_space.K_tournament)
-        if hasattr(self.search_space, 'crossover_type'):
-            param_names.append('crossover_type')
+        if hasattr(self.search_space, "crossover_type"):
+            param_names.append("crossover_type")
             param_values.append(self.search_space.crossover_type)
-        if hasattr(self.search_space, 'niching_alpha'):
-            param_names.append('niching_alpha')
+        if hasattr(self.search_space, "niching_alpha"):
+            param_names.append("niching_alpha")
             param_values.append(self.search_space.niching_alpha)
 
         # itertools.product accepts any iterables, but mypy stubs are incomplete
@@ -380,22 +380,22 @@ class HyperparameterTuner:
             config = dict(zip(param_names, combination, strict=False))
 
             # Skip invalid configurations
-            if config['num_parents_mating'] >= config['sol_per_pop']:
+            if config["num_parents_mating"] >= config["sol_per_pop"]:
                 continue
-            if config['keep_elitism'] >= config['sol_per_pop']:
+            if config["keep_elitism"] >= config["sol_per_pop"]:
                 continue
 
             # Handle conditional parameters
             # K_tournament only matters if using tournament selection
-            parent_selection: Any = config.get('parent_selection_type')
+            parent_selection: Any = config.get("parent_selection_type")
             # Check if parent_selection is a string equal to 'tournament'
             # Note: K_tournament is kept in config but won't be used if not tournament selection
             # This is intentional - the config is valid even if K_tournament is ignored
-            _is_tournament = isinstance(parent_selection, str) and parent_selection == 'tournament'
+            _is_tournament = isinstance(parent_selection, str) and parent_selection == "tournament"
 
             configs.append(config)
 
-        logger.info(f'Generated {len(configs)} valid configurations')
+        logger.info(f"Generated {len(configs)} valid configurations")
         return configs
 
     def tune(self, output_dir: Path | None = None) -> pd.DataFrame:
@@ -413,14 +413,14 @@ class HyperparameterTuner:
             Results dataframe with all configurations and metrics
         """
         if output_dir is None:
-            output_dir = Path('hyperparameter_tuning_results')
+            output_dir = Path("outputs/tuning/hyperparameter_tuning_results")
         output_dir.mkdir(exist_ok=True)
 
         # Generate configurations
         configurations = self.generate_configurations()
 
-        logger.info(f'Starting hyperparameter tuning with {len(configurations)} configurations')
-        logger.info(f'Total runs: {len(configurations) * self.num_runs}')
+        logger.info(f"Starting hyperparameter tuning with {len(configurations)} configurations")
+        logger.info(f"Total runs: {len(configurations) * self.num_runs}")
 
         # Run configurations in parallel
         results = []
@@ -447,11 +447,11 @@ class HyperparameterTuner:
                     results.append(result)
 
                     if (i + 1) % 10 == 0:
-                        logger.info(f'Completed {i + 1}/{len(configurations)} configurations')
+                        logger.info(f"Completed {i + 1}/{len(configurations)} configurations")
 
                 except Exception as e:
                     config = future_to_config[future]
-                    logger.error(f'Configuration failed: {config}, Error: {e}')
+                    logger.error(f"Configuration failed: {config}, Error: {e}")
 
         # Convert to DataFrame
         results_data = []
@@ -459,11 +459,11 @@ class HyperparameterTuner:
             row = result.config.copy()
             row.update(
                 {
-                    'best_fitness': result.best_fitness,
-                    'mean_fitness': result.mean_fitness,
-                    'diversity_score': result.diversity_score,
-                    'convergence_generation': result.convergence_generation,
-                    'high_quality_solutions': result.high_quality_solutions,
+                    "best_fitness": result.best_fitness,
+                    "mean_fitness": result.mean_fitness,
+                    "diversity_score": result.diversity_score,
+                    "convergence_generation": result.convergence_generation,
+                    "high_quality_solutions": result.high_quality_solutions,
                 }
             )
             results_data.append(row)
@@ -471,31 +471,31 @@ class HyperparameterTuner:
         df_results = pd.DataFrame(results_data)
 
         # Sort by best fitness
-        df_results = df_results.sort_values('best_fitness', ascending=False)
+        df_results = df_results.sort_values("best_fitness", ascending=False)
 
         # Save results
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        results_file = output_dir / f'tuning_results_{timestamp}.csv'
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_file = output_dir / f"tuning_results_{timestamp}.csv"
         df_results.to_csv(results_file, index=False)
 
         # Save summary
-        summary_file = output_dir / f'tuning_summary_{timestamp}.json'
+        summary_file = output_dir / f"tuning_summary_{timestamp}.json"
         summary = {
-            'timestamp': timestamp,
-            'total_configurations': len(configurations),
-            'total_runs': len(configurations) * self.num_runs,
-            'num_runs_per_config': self.num_runs,
-            'fitness_threshold': self.fitness_threshold,
-            'best_configuration': df_results.iloc[0].to_dict(),
-            'top_5_configurations': df_results.head(5).to_dict('records'),
+            "timestamp": timestamp,
+            "total_configurations": len(configurations),
+            "total_runs": len(configurations) * self.num_runs,
+            "num_runs_per_config": self.num_runs,
+            "fitness_threshold": self.fitness_threshold,
+            "best_configuration": df_results.iloc[0].to_dict(),
+            "top_5_configurations": df_results.head(5).to_dict("records"),
         }
 
-        with open(summary_file, 'w') as f:
+        with open(summary_file, "w") as f:
             json.dump(summary, f, indent=2)
 
-        logger.info(f'Tuning complete. Results saved to {results_file}')
+        logger.info(f"Tuning complete. Results saved to {results_file}")
         logger.info(
-            f'Best configuration achieved fitness: {df_results.iloc[0]["best_fitness"]:.4f}'
+            f"Best configuration achieved fitness: {df_results.iloc[0]['best_fitness']:.4f}"
         )
 
         return df_results
@@ -522,51 +522,51 @@ class HyperparameterTuner:
         # Parameter importance analysis
         param_importance = {}
         for param in [
-            'sol_per_pop',
-            'num_generations',
-            'num_parents_mating',
-            'mutation_probability',
-            'crossover_probability',
-            'keep_elitism',
-            'niching_enabled',
-            'niching_sigma_share',
+            "sol_per_pop",
+            "num_generations",
+            "num_parents_mating",
+            "mutation_probability",
+            "crossover_probability",
+            "keep_elitism",
+            "niching_enabled",
+            "niching_sigma_share",
         ]:
             if param in top_10.columns:
                 param_importance[param] = {
-                    'top_10_mean': top_10[param].mean(),
-                    'all_mean': results_df[param].mean(),
-                    'top_10_std': top_10[param].std(),
+                    "top_10_mean": top_10[param].mean(),
+                    "all_mean": results_df[param].mean(),
+                    "top_10_std": top_10[param].std(),
                 }
 
-        analysis['parameter_importance'] = param_importance
+        analysis["parameter_importance"] = param_importance
 
         # Niching effectiveness
-        niching_enabled = results_df[results_df['niching_enabled']]
-        niching_disabled = results_df[~results_df['niching_enabled']]
+        niching_enabled = results_df[results_df["niching_enabled"]]
+        niching_disabled = results_df[~results_df["niching_enabled"]]
 
-        analysis['niching_effectiveness'] = {
-            'enabled_mean_fitness': niching_enabled['best_fitness'].mean(),
-            'disabled_mean_fitness': niching_disabled['best_fitness'].mean(),
-            'enabled_mean_diversity': niching_enabled['diversity_score'].mean(),
-            'disabled_mean_diversity': niching_disabled['diversity_score'].mean(),
+        analysis["niching_effectiveness"] = {
+            "enabled_mean_fitness": niching_enabled["best_fitness"].mean(),
+            "disabled_mean_fitness": niching_disabled["best_fitness"].mean(),
+            "enabled_mean_diversity": niching_enabled["diversity_score"].mean(),
+            "disabled_mean_diversity": niching_disabled["diversity_score"].mean(),
         }
 
         # Convergence analysis (convert pandas Series results to float)
-        convergence_mean = results_df['convergence_generation'].mean()
-        convergence_q25 = results_df['convergence_generation'].quantile(0.25)
-        convergence_q75 = results_df['convergence_generation'].quantile(0.75)
+        convergence_mean = results_df["convergence_generation"].mean()
+        convergence_q25 = results_df["convergence_generation"].quantile(0.25)
+        convergence_q75 = results_df["convergence_generation"].quantile(0.75)
         convergence_analysis: dict[str, float] = {
-            'mean_convergence_generation': float(convergence_mean)
+            "mean_convergence_generation": float(convergence_mean)
             if pd.notna(convergence_mean)
             else 0.0,
-            'fast_convergence_threshold': float(convergence_q25)
+            "fast_convergence_threshold": float(convergence_q25)
             if pd.notna(convergence_q25)
             else 0.0,
-            'slow_convergence_threshold': float(convergence_q75)
+            "slow_convergence_threshold": float(convergence_q75)
             if pd.notna(convergence_q75)
             else 0.0,
         }
-        analysis['convergence_analysis'] = convergence_analysis
+        analysis["convergence_analysis"] = convergence_analysis
 
         return analysis
 
@@ -651,53 +651,53 @@ def load_experiment_config(yaml_path: Path) -> ExperimentConfig:
         If YAML structure is invalid or missing required fields
     """
     if not yaml_path.exists():
-        raise FileNotFoundError(f'Experiment YAML file not found: {yaml_path}')
+        raise FileNotFoundError(f"Experiment YAML file not found: {yaml_path}")
 
     with open(yaml_path) as f:
         raw_config = yaml.safe_load(f)
 
-    if not isinstance(raw_config, dict) or 'experiment' not in raw_config:
+    if not isinstance(raw_config, dict) or "experiment" not in raw_config:
         raise ValueError('YAML must contain top-level "experiment" key')
 
-    exp = raw_config['experiment']
+    exp = raw_config["experiment"]
 
     # Validate required fields
-    required_fields = ['name', 'data', 'sensor', 'search_space', 'execution']
+    required_fields = ["name", "data", "sensor", "search_space", "execution"]
     missing_fields = [field for field in required_fields if field not in exp]
     if missing_fields:
-        raise ValueError(f'Missing required fields: {missing_fields}')
+        raise ValueError(f"Missing required fields: {missing_fields}")
 
     # Resolve relative paths relative to project root (parent of experiments directory)
     # Paths in YAML are relative to project root, not YAML file location
     yaml_dir = yaml_path.parent
     # If YAML is in experiments/, project root is parent; otherwise assume current dir
-    if yaml_dir.name == 'experiments':
+    if yaml_dir.name == "experiments":
         project_root = yaml_dir.parent
     else:
         # Fallback: try to find project root by looking for src/ and data/ directories
         project_root = yaml_dir
         while project_root != project_root.parent:
-            if (project_root / 'src').exists() and (project_root / 'data').exists():
+            if (project_root / "src").exists() and (project_root / "data").exists():
                 break
             project_root = project_root.parent
 
-    if 'spectral_data_file' in exp['data']:
-        exp['data']['spectral_data_file'] = (
-            project_root / exp['data']['spectral_data_file']
+    if "spectral_data_file" in exp["data"]:
+        exp["data"]["spectral_data_file"] = (
+            project_root / exp["data"]["spectral_data_file"]
         ).resolve()
-    if 'air_transmittance_file' in exp['data']:
-        exp['data']['air_transmittance_file'] = (
-            project_root / exp['data']['air_transmittance_file']
+    if "air_transmittance_file" in exp["data"]:
+        exp["data"]["air_transmittance_file"] = (
+            project_root / exp["data"]["air_transmittance_file"]
         ).resolve()
 
     return ExperimentConfig(
-        name=exp['name'],
-        description=exp.get('description'),
-        data=exp['data'],
-        sensor=exp['sensor'],
-        search_space=exp['search_space'],
-        execution=exp['execution'],
-        validation=exp.get('validation'),
+        name=exp["name"],
+        description=exp.get("description"),
+        data=exp["data"],
+        sensor=exp["sensor"],
+        search_space=exp["search_space"],
+        execution=exp["execution"],
+        validation=exp.get("validation"),
     )
 
 
@@ -718,26 +718,26 @@ def create_fitness_evaluator_from_experiment(
     """
     # Load data
     data = load_substance_atmosphere_data(
-        spectral_data_file=Path(experiment.data['spectral_data_file']),
-        air_transmittance_file=Path(experiment.data['air_transmittance_file']),
-        atmospheric_distance_ratio=experiment.data.get('atmospheric_distance_ratio', 0.11),
-        temperature_kelvin=experiment.data.get('temperature_kelvin', 293.15),
-        air_refractive_index=experiment.data.get('air_refractive_index', 1.0),
+        spectral_data_file=Path(experiment.data["spectral_data_file"]),
+        air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
+        atmospheric_distance_ratio=experiment.data.get("atmospheric_distance_ratio", 0.11),
+        temperature_kelvin=experiment.data.get("temperature_kelvin", 293.15),
+        air_refractive_index=experiment.data.get("air_refractive_index", 1.0),
     )
 
     # Handle multi-condition data (should be single condition for tuning)
     if isinstance(data, list):
         if len(data) > 1:
-            logger.warning('Multi-condition data detected, using first condition only')
+            logger.warning("Multi-condition data detected, using first condition only")
         data = data[0]
 
     # Create fitness evaluator (ensure proper types from data dict)
-    wavelengths_val = data['wavelengths']
-    emissivity_val = data['emissivity_curves']
-    temp_k_val = data['temperature_K']
-    atm_dist_val = data['atmospheric_distance_ratio']
-    air_ref_idx_val = data['air_refractive_index']
-    air_trans_val = data['air_transmittance']
+    wavelengths_val = data["wavelengths"]
+    emissivity_val = data["emissivity_curves"]
+    temp_k_val = data["temperature_K"]
+    atm_dist_val = data["atmospheric_distance_ratio"]
+    air_ref_idx_val = data["air_refractive_index"]
+    air_trans_val = data["air_transmittance"]
 
     # Ensure arrays are arrays and scalars are floats
     # Data dict values are np.ndarray | float, so handle both cases
@@ -777,7 +777,7 @@ def create_fitness_evaluator_from_experiment(
         air_refractive_index=air_ref_idx_float,
         air_transmittance=air_trans_array,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
-        params_per_basis_function=experiment.sensor['params_per_basis_function'],
+        params_per_basis_function=experiment.sensor["params_per_basis_function"],
         distance_metric=spectral_angle_mapper,
     )
 
@@ -801,25 +801,25 @@ def create_search_space_from_experiment(experiment: ExperimentConfig) -> Hyperpa
 
     # Create base search space
     search_space = HyperparameterSearchSpace(
-        population_size=search_space_dict.get('sol_per_pop', [100, 200, 300]),
-        num_generations=search_space_dict.get('num_generations', [1000, 2000]),
-        num_parents_mating=search_space_dict.get('num_parents_mating', [40, 50, 60]),
-        mutation_rate_base=search_space_dict.get('mutation_probability', [0.05, 0.1, 0.15]),
-        crossover_rate=search_space_dict.get('crossover_probability', [0.7, 0.8, 0.9]),
-        elitism_size=search_space_dict.get('keep_elitism', [3, 5, 10]),
-        niching_enabled=search_space_dict.get('niching_enabled', [True, False]),
-        sigma_share=search_space_dict.get('niching_sigma_share', [0.5, 1.0, 2.0]),
+        population_size=search_space_dict.get("sol_per_pop", [100, 200, 300]),
+        num_generations=search_space_dict.get("num_generations", [1000, 2000]),
+        num_parents_mating=search_space_dict.get("num_parents_mating", [40, 50, 60]),
+        mutation_rate_base=search_space_dict.get("mutation_probability", [0.05, 0.1, 0.15]),
+        crossover_rate=search_space_dict.get("crossover_probability", [0.7, 0.8, 0.9]),
+        elitism_size=search_space_dict.get("keep_elitism", [3, 5, 10]),
+        niching_enabled=search_space_dict.get("niching_enabled", [True, False]),
+        sigma_share=search_space_dict.get("niching_sigma_share", [0.5, 1.0, 2.0]),
     )
 
     # Add optional parameters as attributes
-    if 'parent_selection_type' in search_space_dict:
-        search_space.parent_selection_type = search_space_dict['parent_selection_type']
-    if 'K_tournament' in search_space_dict:
-        search_space.K_tournament = search_space_dict['K_tournament']
-    if 'crossover_type' in search_space_dict:
-        search_space.crossover_type = search_space_dict['crossover_type']
-    if 'niching_alpha' in search_space_dict:
-        search_space.niching_alpha = search_space_dict['niching_alpha']
+    if "parent_selection_type" in search_space_dict:
+        search_space.parent_selection_type = search_space_dict["parent_selection_type"]
+    if "K_tournament" in search_space_dict:
+        search_space.K_tournament = search_space_dict["K_tournament"]
+    if "crossover_type" in search_space_dict:
+        search_space.crossover_type = search_space_dict["crossover_type"]
+    if "niching_alpha" in search_space_dict:
+        search_space.niching_alpha = search_space_dict["niching_alpha"]
 
     return search_space
 
@@ -837,8 +837,8 @@ def create_gene_space_from_experiment(experiment: ExperimentConfig) -> list[dict
     list[dict[str, float]]
         Gene space bounds (list of dicts with 'low' and 'high' keys)
     """
-    num_basis_functions = experiment.sensor['num_basis_functions']
-    param_bounds = experiment.sensor['param_bounds']
+    num_basis_functions = experiment.sensor["num_basis_functions"]
+    param_bounds = experiment.sensor["param_bounds"]
 
     # Repeat param_bounds for each basis function
     gene_space: list[dict[str, float]] = param_bounds * num_basis_functions
@@ -879,74 +879,74 @@ def visualize_top_configurations(
     num_generations_override : int | None
         Override number of generations for visualization runs (default: None, uses config value)
     """
-    logger.info(f'\n=== Generating Visualizations for Top {top_k} Configurations ===')
+    logger.info(f"\n=== Generating Visualizations for Top {top_k} Configurations ===")
 
     # Get top K configurations
     top_configs = results_df.head(top_k)
 
     # Load data to get wavelengths for visualization
     data = load_substance_atmosphere_data(
-        spectral_data_file=Path(experiment.data['spectral_data_file']),
-        air_transmittance_file=Path(experiment.data['air_transmittance_file']),
-        atmospheric_distance_ratio=experiment.data.get('atmospheric_distance_ratio', 0.11),
-        temperature_kelvin=experiment.data.get('temperature_kelvin', 293.15),
-        air_refractive_index=experiment.data.get('air_refractive_index', 1.0),
+        spectral_data_file=Path(experiment.data["spectral_data_file"]),
+        air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
+        atmospheric_distance_ratio=experiment.data.get("atmospheric_distance_ratio", 0.11),
+        temperature_kelvin=experiment.data.get("temperature_kelvin", 293.15),
+        air_refractive_index=experiment.data.get("air_refractive_index", 1.0),
     )
 
     # Handle multi-condition data
     if isinstance(data, list):
         if len(data) > 1:
-            logger.warning('Multi-condition data detected, using first condition only')
+            logger.warning("Multi-condition data detected, using first condition only")
         data = data[0]
 
-    wavelengths = data['wavelengths']
-    fitness_threshold = experiment.execution.get('fitness_threshold', 45.0)
+    wavelengths = data["wavelengths"]
+    fitness_threshold = experiment.execution.get("fitness_threshold", 45.0)
 
     for idx, (_, config_row) in enumerate(top_configs.iterrows(), 1):
-        logger.info(f'\nVisualizing configuration {idx}/{top_k} (rank {idx})...')
+        logger.info(f"\nVisualizing configuration {idx}/{top_k} (rank {idx})...")
 
         try:
             # Extract configuration from row (exclude result columns)
             result_columns = [
-                'best_fitness',
-                'mean_fitness',
-                'diversity_score',
-                'convergence_generation',
-                'high_quality_solutions',
+                "best_fitness",
+                "mean_fitness",
+                "diversity_score",
+                "convergence_generation",
+                "high_quality_solutions",
             ]
             config_dict = {k: v for k, v in config_row.items() if k not in result_columns}
 
             # Override generations if specified (for faster visualization runs)
             if num_generations_override:
-                config_dict['num_generations'] = num_generations_override
-                logger.info(f'  Using {num_generations_override} generations for visualization')
+                config_dict["num_generations"] = num_generations_override
+                logger.info(f"  Using {num_generations_override} generations for visualization")
 
             # Run single GA run with this configuration
-            random_seed = experiment.execution.get('random_seed_base', 42)
+            random_seed = experiment.execution.get("random_seed_base", 42)
 
             # Build GA config
             ga_config = create_ga_config(
-                num_generations=config_dict.get('num_generations', 2000),
-                num_parents_mating=config_dict.get('num_parents_mating', 50),
-                sol_per_pop=config_dict.get('sol_per_pop', 200),
-                parent_selection_type=config_dict.get('parent_selection_type', 'tournament'),
-                K_tournament=config_dict.get('K_tournament', 3),
-                keep_elitism=config_dict.get('keep_elitism', 5),
-                crossover_type=config_dict.get('crossover_type', 'uniform'),
-                crossover_probability=config_dict.get('crossover_probability', 0.8),
+                num_generations=config_dict.get("num_generations", 2000),
+                num_parents_mating=config_dict.get("num_parents_mating", 50),
+                sol_per_pop=config_dict.get("sol_per_pop", 200),
+                parent_selection_type=config_dict.get("parent_selection_type", "tournament"),
+                K_tournament=config_dict.get("K_tournament", 3),
+                keep_elitism=config_dict.get("keep_elitism", 5),
+                crossover_type=config_dict.get("crossover_type", "uniform"),
+                crossover_probability=config_dict.get("crossover_probability", 0.8),
                 mutation_type=diversity_preserving_mutation,
-                mutation_probability=config_dict.get('mutation_probability', 0.1),
+                mutation_probability=config_dict.get("mutation_probability", 0.1),
                 save_best_solutions=True,
-                stop_criteria=config_dict.get('stop_criteria', 'saturate_200'),
-                niching_enabled=config_dict.get('niching_enabled', True),
-                niching_use_optimal_pairing=config_dict.get('niching_use_optimal_pairing', True),
+                stop_criteria=config_dict.get("stop_criteria", "saturate_200"),
+                niching_enabled=config_dict.get("niching_enabled", True),
+                niching_use_optimal_pairing=config_dict.get("niching_use_optimal_pairing", True),
                 niching_params_per_group=config_dict.get(
-                    'niching_params_per_group', params_per_basis_function
+                    "niching_params_per_group", params_per_basis_function
                 ),
-                niching_sigma_share=config_dict.get('niching_sigma_share', 0.5),
-                niching_alpha=config_dict.get('niching_alpha', 0.5),
+                niching_sigma_share=config_dict.get("niching_sigma_share", 0.5),
+                niching_alpha=config_dict.get("niching_alpha", 0.5),
                 niching_optimal_pairing_metric=config_dict.get(
-                    'niching_optimal_pairing_metric', 'euclidean'
+                    "niching_optimal_pairing_metric", "euclidean"
                 ),
                 random_seed=random_seed,
             )
@@ -956,10 +956,10 @@ def visualize_top_configurations(
 
             # Add runtime-specific parameters
             ga_params = ga_config.copy()
-            ga_params['num_genes'] = len(gene_space)
-            ga_params['gene_space'] = gene_space
-            ga_params['fitness_func'] = fitness_func
-            ga_params['on_generation'] = diversity_tracker.on_generation
+            ga_params["num_genes"] = len(gene_space)
+            ga_params["gene_space"] = gene_space
+            ga_params["fitness_func"] = fitness_func
+            ga_params["on_generation"] = diversity_tracker.on_generation
 
             # Create and run GA
             ga = AdvancedGA(**ga_params)
@@ -976,18 +976,18 @@ def visualize_top_configurations(
 
             if len(high_quality_population) == 0:
                 logger.warning(
-                    f'  No high-quality solutions found (threshold: {fitness_threshold}). '
-                    f'Best fitness: {np.max(final_fitness_scores):.4f}'
+                    f"  No high-quality solutions found (threshold: {fitness_threshold}). "
+                    f"Best fitness: {np.max(final_fitness_scores):.4f}"
                 )
                 continue
 
             logger.info(
-                f'  Found {len(high_quality_population)} high-quality solutions '
-                f'(best: {np.max(high_quality_fitness):.4f})'
+                f"  Found {len(high_quality_population)} high-quality solutions "
+                f"(best: {np.max(high_quality_fitness):.4f})"
             )
 
             # Create output directory for this configuration
-            config_output_dir = output_dir / f'top_{idx}_config'
+            config_output_dir = output_dir / f"top_{idx}_config"
             config_output_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate visualization
@@ -1010,11 +1010,11 @@ def visualize_top_configurations(
                 output_dir=config_output_dir,
             )
 
-            logger.info(f'  ✓ Visualization saved to {config_output_dir}')
+            logger.info(f"  ✓ Visualization saved to {config_output_dir}")
 
         except Exception as e:
-            logger.error(f'  ✗ Failed to visualize configuration {idx}: {e}')
+            logger.error(f"  ✗ Failed to visualize configuration {idx}: {e}")
             logger.debug(traceback.format_exc())
             continue
 
-    logger.info(f'\n✓ Completed visualizations for top {top_k} configurations')
+    logger.info(f"\n✓ Completed visualizations for top {top_k} configurations")

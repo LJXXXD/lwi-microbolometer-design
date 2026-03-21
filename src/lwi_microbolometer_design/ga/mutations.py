@@ -241,7 +241,7 @@ DEFAULT_MUTATION_CONFIG = MutationConfig.balanced()
 
 def _extract_mutation_probability(ga_instance: pygad.GA) -> float:
     """Extract and normalize mutation probability from GA instance."""
-    mutation_probability_param = getattr(ga_instance, 'mutation_probability', 0.1)
+    mutation_probability_param = getattr(ga_instance, "mutation_probability", 0.1)
     try:
         if (
             isinstance(mutation_probability_param, (list, tuple, np.ndarray))
@@ -254,7 +254,7 @@ def _extract_mutation_probability(ga_instance: pygad.GA) -> float:
             base_gene_mutation_probability = float(mutation_probability_param)
     except (TypeError, ValueError, AttributeError):
         logger.warning(
-            f'Invalid mutation_probability: {mutation_probability_param}. Using default 0.1'
+            f"Invalid mutation_probability: {mutation_probability_param}. Using default 0.1"
         )
         base_gene_mutation_probability = 0.1
     # Use Python min/max for scalar clipping (np.clip is for arrays)
@@ -263,8 +263,8 @@ def _extract_mutation_probability(ga_instance: pygad.GA) -> float:
 
 def _calculate_progress(ga_instance: pygad.GA) -> float:
     """Calculate progress as fraction of generations completed."""
-    total_gens = getattr(ga_instance, 'num_generations', 1) or 1
-    gens_done = getattr(ga_instance, 'generations_completed', 0) or 0
+    total_gens = getattr(ga_instance, "num_generations", 1) or 1
+    gens_done = getattr(ga_instance, "generations_completed", 0) or 0
     return min(1.0, max(0.0, gens_done / total_gens))
 
 
@@ -282,7 +282,7 @@ def _calculate_diversity_score(
     ranges : np.ndarray
         Range for each gene (for normalization).
     """
-    population = np.array(getattr(ga_instance, 'population', []), dtype=np.float64)
+    population = np.array(getattr(ga_instance, "population", []), dtype=np.float64)
     population_mean = (
         np.mean(population, axis=0) if population.size else np.zeros(num_genes, dtype=np.float64)
     )
@@ -290,8 +290,8 @@ def _calculate_diversity_score(
     # Calculate ranges for normalization
     ranges_list = []
     for info in space_infos:
-        if info['is_discrete'] and info['values'] is not None:
-            vals = info['values']
+        if info["is_discrete"] and info["values"] is not None:
+            vals = info["values"]
             try:
                 num_vals = len(vals)
                 rng = (
@@ -302,8 +302,8 @@ def _calculate_diversity_score(
             except (TypeError, ValueError, AttributeError):
                 rng = 1.0
         else:
-            low = info['low'] if info['low'] is not None else 0.0
-            high = info['high'] if info['high'] is not None else 1.0
+            low = info["low"] if info["low"] is not None else 0.0
+            high = info["high"] if info["high"] is not None else 1.0
             rng = float(max(high - low, 1e-12))
         ranges_list.append(rng)
     ranges = np.array(ranges_list, dtype=np.float64)
@@ -323,23 +323,23 @@ def _calculate_diversity_score(
 
 def _get_mutation_config(ga_instance: pygad.GA) -> MutationConfig:
     """Extract mutation configuration from GA instance with backward compatibility."""
-    mutation_config = getattr(ga_instance, 'mutation_config', None)
+    mutation_config = getattr(ga_instance, "mutation_config", None)
     if mutation_config is None or not isinstance(mutation_config, MutationConfig):
         # Backward compatibility: check for individual attributes
         mutation_config = MutationConfig(
             stagnation_window_size=getattr(
                 ga_instance,
-                'mutation_stagnation_window_size',
+                "mutation_stagnation_window_size",
                 DEFAULT_MUTATION_CONFIG.stagnation_window_size,
             ),
             stagnation_threshold=getattr(
                 ga_instance,
-                'mutation_stagnation_threshold',
+                "mutation_stagnation_threshold",
                 DEFAULT_MUTATION_CONFIG.stagnation_threshold,
             ),
             low_diversity_threshold=getattr(
                 ga_instance,
-                'mutation_low_diversity_threshold',
+                "mutation_low_diversity_threshold",
                 DEFAULT_MUTATION_CONFIG.low_diversity_threshold,
             ),
         )
@@ -348,7 +348,7 @@ def _get_mutation_config(ga_instance: pygad.GA) -> MutationConfig:
 
 def _detect_stagnation(ga_instance: pygad.GA, mutation_config: MutationConfig) -> bool:
     """Detect if the GA is stagnating based on fitness history."""
-    best_fitness_history = getattr(ga_instance, 'best_solutions_fitness', None)
+    best_fitness_history = getattr(ga_instance, "best_solutions_fitness", None)
     if not (
         isinstance(best_fitness_history, list)
         and len(best_fitness_history) >= mutation_config.min_fitness_history_for_stagnation
@@ -440,7 +440,7 @@ def _mutate_discrete_gene(
     random_generator: np.random.Generator,
 ) -> None:
     """Mutate a discrete/categorical gene."""
-    vals = info['values']
+    vals = info["values"]
     # With some rate, restart by drawing randomly from allowed values
     if random_generator.random() < restart_rate:
         mutated[r, g] = np.random.choice(vals)
@@ -601,6 +601,10 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
     ...     ...
     ... )
     """
+    # DEBUG: Verify mutation function is being called - MUST be first line
+    print(
+        f"DEBUG: Mutation function CALLED - offspring shape: {offspring.shape if offspring is not None else None}"
+    )
     if offspring is None or len(offspring) == 0:
         return offspring
 
@@ -612,7 +616,7 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
     progress = _calculate_progress(ga_instance)
 
     # Build per-gene space info
-    gene_space_raw = getattr(ga_instance, 'gene_space', None)
+    gene_space_raw = getattr(ga_instance, "gene_space", None)
     gene_space_list = _ensure_gene_space_list(gene_space_raw, num_genes)
     space_infos = [_extract_gene_space_components(gene_space_list[g]) for g in range(num_genes)]
 
@@ -651,7 +655,7 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
             gene_range = ranges[g]
 
             # Dispatch to discrete or continuous mutation handler
-            if info['is_discrete'] and info['values'] is not None:
+            if info["is_discrete"] and info["values"] is not None:
                 _mutate_discrete_gene(
                     mutated, r, g, info, mutation_config, progress, restart_rate, random_generator
                 )
@@ -693,44 +697,44 @@ def _extract_gene_space_components(space_entry: Any) -> dict[str, Any]:
     - is_integer: bool (hint for casting)
     """
     result: dict[str, Any] = {
-        'is_discrete': False,
-        'values': None,
-        'low': None,
-        'high': None,
-        'step': None,
-        'is_integer': False,
+        "is_discrete": False,
+        "values": None,
+        "low": None,
+        "high": None,
+        "step": None,
+        "is_integer": False,
     }
 
     if isinstance(space_entry, dict):
-        if 'values' in space_entry and space_entry['values'] is not None:
+        if "values" in space_entry and space_entry["values"] is not None:
             # dtype=object needed for mixed-type arrays (e.g., strings, numbers)
             # Convert to list first, then array to help mypy understand the type
-            values_list = list(space_entry['values'])
+            values_list = list(space_entry["values"])
             vals: np.ndarray = np.array(values_list, dtype=object)
-            result['is_discrete'] = True
-            result['values'] = vals
+            result["is_discrete"] = True
+            result["values"] = vals
             # Infer integer hint if all values are ints
-            result['is_integer'] = all(isinstance(v, (int, np.integer)) for v in vals)
+            result["is_integer"] = all(isinstance(v, (int, np.integer)) for v in vals)
             return result
 
         # Range-based
-        low = space_entry.get('low', None)
-        high = space_entry.get('high', None)
-        step = space_entry.get('step', None)
-        result['low'] = float(low) if low is not None else None
-        result['high'] = float(high) if high is not None else None
-        result['step'] = float(step) if step is not None else None
+        low = space_entry.get("low", None)
+        high = space_entry.get("high", None)
+        step = space_entry.get("step", None)
+        result["low"] = float(low) if low is not None else None
+        result["high"] = float(high) if high is not None else None
+        result["step"] = float(step) if step is not None else None
 
         # Infer integer if step is an integer step and bounds look integer
         if step is not None:
-            result['is_integer'] = isinstance(step, (int, np.integer))
+            result["is_integer"] = isinstance(step, (int, np.integer))
         if (
             low is not None
             and high is not None
             and all(isinstance(x, (int, np.integer)) for x in (low, high))
             and (step is None or isinstance(step, (int, np.integer)))
         ):
-            result['is_integer'] = True
+            result["is_integer"] = True
         return result
 
     if isinstance(space_entry, (list, tuple, np.ndarray)):
@@ -739,19 +743,19 @@ def _extract_gene_space_components(space_entry: Any) -> dict[str, Any]:
             isinstance(x, (int, float, np.integer, np.floating)) for x in space_entry
         ):
             low, high = space_entry
-            result['low'] = float(low)
-            result['high'] = float(high)
+            result["low"] = float(low)
+            result["high"] = float(high)
             # Integer hint if both integer and range is small integer space
-            result['is_integer'] = all(isinstance(x, (int, np.integer)) for x in (low, high))
+            result["is_integer"] = all(isinstance(x, (int, np.integer)) for x in (low, high))
             return result
 
         # dtype=object needed for mixed-type arrays
         # Convert to list first, then array to help mypy understand the type
         values_list = list(space_entry)
         vals_array: np.ndarray = np.array(values_list, dtype=object)
-        result['is_discrete'] = True
-        result['values'] = vals_array
-        result['is_integer'] = all(isinstance(v, (int, np.integer)) for v in vals_array)
+        result["is_discrete"] = True
+        result["values"] = vals_array
+        result["is_integer"] = all(isinstance(v, (int, np.integer)) for v in vals_array)
         return result
 
     # Scalar fixed value
@@ -759,27 +763,27 @@ def _extract_gene_space_components(space_entry: Any) -> dict[str, Any]:
         # dtype=object needed for mixed-type arrays
         # Convert to list first, then array to help mypy understand the type
         vals_scalar: np.ndarray = np.array([space_entry], dtype=object)
-        result['is_discrete'] = True
-        result['values'] = vals_scalar
-        result['is_integer'] = isinstance(space_entry, (int, np.integer))
+        result["is_discrete"] = True
+        result["values"] = vals_scalar
+        result["is_integer"] = isinstance(space_entry, (int, np.integer))
         return result
 
     # Fallback: treat as unbounded float
-    result['low'] = None
-    result['high'] = None
-    result['step'] = None
-    result['is_integer'] = False
+    result["low"] = None
+    result["high"] = None
+    result["step"] = None
+    result["is_integer"] = False
     return result
 
 
 def _random_from_space(space_info: dict[str, Any]) -> int | float | Any:
     """Sample a random value from the given normalized space description."""
-    if space_info['is_discrete'] and space_info['values'] is not None:
-        return np.random.choice(space_info['values'])
+    if space_info["is_discrete"] and space_info["values"] is not None:
+        return np.random.choice(space_info["values"])
 
-    low = space_info['low']
-    high = space_info['high']
-    step = space_info['step']
+    low = space_info["low"]
+    high = space_info["high"]
+    step = space_info["step"]
     if low is None or high is None:
         # Unbounded fallback: standard normal
         val = float(np.random.normal(0.0, 1.0))
@@ -793,7 +797,7 @@ def _random_from_space(space_info: dict[str, Any]) -> int | float | Any:
         idx = np.random.randint(0, num_steps + 1)
         val = low + idx * step
 
-    if space_info['is_integer']:
+    if space_info["is_integer"]:
         return round(val)
     return val
 
@@ -805,8 +809,8 @@ def _clip_and_quantize(value: int | float | Any, space_info: dict[str, Any]) -> 
     - For ranged genes: clip to [low, high] and snap to step if provided.
     - Preserve integer typing when hinted.
     """
-    if space_info['is_discrete'] and space_info['values'] is not None:
-        vals = space_info['values']
+    if space_info["is_discrete"] and space_info["values"] is not None:
+        vals = space_info["values"]
         # If value is already in the set, keep it.
         # Otherwise snap to nearest by numeric distance when possible.
         try:
@@ -828,15 +832,15 @@ def _clip_and_quantize(value: int | float | Any, space_info: dict[str, Any]) -> 
             idx = int(np.argmin(np.abs(numeric_vals_array - value_float)))
             nearest = float(numeric_vals_array[idx])
             # Return with original type when possible
-            if space_info['is_integer']:
+            if space_info["is_integer"]:
                 return round(nearest)
             return float(nearest)
         return np.random.choice(vals)
 
     # Ranged
-    low = space_info['low']
-    high = space_info['high']
-    step = space_info['step']
+    low = space_info["low"]
+    high = space_info["high"]
+    step = space_info["step"]
     if low is not None and high is not None:
         # Use Python min/max for scalar clipping (np.clip is for arrays)
         value = float(max(float(low), min(float(high), float(value))))
@@ -844,7 +848,7 @@ def _clip_and_quantize(value: int | float | Any, space_info: dict[str, Any]) -> 
             # Snap to nearest grid point
             k = round((value - low) / step)
             value = low + k * step
-    if space_info['is_integer']:
+    if space_info["is_integer"]:
         return round(value)
     return float(value)
 

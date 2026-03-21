@@ -1,0 +1,41 @@
+experiment:
+  name: "full_grid_search"
+  description: "Comprehensive grid search over key hyperparameters"
+
+  data:
+    spectral_data_file: "data/Test 3 - 4 White Powers/white_powders_with_labels.xlsx"
+    air_transmittance_file: "data/Test 3 - 4 White Powers/Air transmittance.xlsx"
+    atmospheric_distance_ratio: 0.11
+    temperature_kelvin: 293.15
+    air_refractive_index: 1.0
+
+  sensor:
+    num_basis_functions: 4
+    params_per_basis_function: 2
+    param_bounds:
+      - {low: 4.0, high: 20.0}  # mu (wavelength center)
+      - {low: 0.1, high: 4.0}   # sigma (width)
+
+  search_space:
+    # Comprehensive search space
+    sol_per_pop: [200, 300]
+    num_generations: [2000]  # Only 2000 - can extract 1000-gen results from this run
+    num_parents_mating: [40, 60]
+    parent_selection_type: ["tournament", "SSS"]
+    K_tournament: [3, 5]  # Only used if parent_selection_type is "tournament"
+    crossover_type: ["uniform", "single_point"]
+    crossover_probability: [0.7, 0.9]  # Removed 0.8 (middle value, keeping extremes)
+    mutation_probability: [0.05, 0.1, 0.2]
+    keep_elitism: [3, 5, 10]
+    niching_enabled: [true, false]
+    niching_sigma_share: [0.5, 1.0, 2.0]
+    niching_alpha: [0.5, 1.0]
+
+  execution:
+    num_runs_per_config: 1  # Multiple runs for statistical significance (uses seeds: base, base+1, base+2, etc.)
+    random_seed_base: 42
+    max_workers: null  # null = use all available CPU cores (automatically detected)
+    fitness_threshold: 50.0
+
+  validation:
+    enabled: false  # Full run mode

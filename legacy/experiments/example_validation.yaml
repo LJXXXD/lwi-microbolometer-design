@@ -1,0 +1,39 @@
+experiment:
+  name: "validation_run"
+  description: "Quick validation run with small search space and few generations"
+
+  data:
+    spectral_data_file: "data/Test 3 - 4 White Powers/white_powders_with_labels.xlsx"
+    air_transmittance_file: "data/Test 3 - 4 White Powers/Air transmittance.xlsx"
+    atmospheric_distance_ratio: 0.11
+    temperature_kelvin: 293.15
+    air_refractive_index: 1.0
+
+  sensor:
+    num_basis_functions: 4
+    params_per_basis_function: 2
+    param_bounds:
+      - {low: 4.0, high: 20.0}  # mu (wavelength center)
+      - {low: 0.1, high: 4.0}   # sigma (width)
+
+  search_space:
+    # Small search space for quick validation
+    sol_per_pop: [100, 200]
+    num_generations: [100, 200]  # Will be overridden by validation mode
+    num_parents_mating: [40, 50]
+    mutation_probability: [0.1, 0.15]
+    crossover_probability: [0.8]
+    keep_elitism: [5]
+    niching_enabled: [true, false]
+    niching_sigma_share: [0.5, 1.0]
+
+  execution:
+    num_runs_per_config: 2  # Fewer runs for validation
+    random_seed_base: 42
+    max_workers: 12
+    fitness_threshold: 45.0
+
+  validation:
+    enabled: true
+    num_generations_override: 50  # Very quick runs
+    max_configs: 10  # Limit total configurations

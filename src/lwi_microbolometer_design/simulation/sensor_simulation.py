@@ -96,6 +96,8 @@ def simulate_sensor_output(
         abso_spec = tau_air * bb_emit * emissivity_curve * basis_functions  # Shape = (d, m)
 
         # Integrate over the wavelengths to get sensor outputs
-        sensor_outputs[:, i] = np.trapz(abso_spec, wavelengths.flatten(), axis=0)  # Shape = (m,)
+        sensor_outputs[:, i] = np.trapezoid(
+            abso_spec, wavelengths.flatten(), axis=0
+        )  # Shape = (m,)
 
     return sensor_outputs
