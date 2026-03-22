@@ -132,6 +132,12 @@ def mean_min_based_dissimilarity_score(
 ) -> float:
     """Compute dissimilarity score combining mean and minimum with adjustable penalty.
 
+    Alternative Fitness Objectives
+    ----------------------------
+    Not used by the current GA / tuning hot path (which uses
+    :func:`min_based_dissimilarity_score`). Kept as an optional objective for
+    experiments or future fitness formulations.
+
     Combines average separation (mean) with worst-case separation (minimum).
     Formula: mean_distance * (min_distance ** alpha)
 
@@ -179,6 +185,12 @@ def group_based_dissimilarity_score(
     **kwargs,
 ) -> float:
     """Compute dissimilarity score based on mean inter-group distance.
+
+    Alternative Fitness Objectives
+    ----------------------------
+    Not used by the current GA / tuning hot path (which uses
+    :func:`min_based_dissimilarity_score`). Kept for grouped or hierarchical
+    discrimination experiments.
 
     Evaluates separation between groups rather than individual substances.
     Useful when substances can be categorized into meaningful groups
@@ -235,6 +247,12 @@ def weighted_mean_min_dissimilarity_score(
     **kwargs,
 ) -> float:
     """Combine mean and minimum distances with a linear weighting factor.
+
+    Alternative Fitness Objectives
+    ----------------------------
+    Not used by the current GA / tuning hot path (which uses
+    :func:`min_based_dissimilarity_score`). Kept as a tunable blend between
+    mean separation and conservative minimum separation.
 
     Formula: beta * mean_distance + (1 - beta) * min_distance
 

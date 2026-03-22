@@ -49,6 +49,7 @@ from .tuning import (
 
 # Visualization
 from .visualization import (
+    ParametersToCurves,
     plot_best_design,
     plot_fitness_spread_evolution,
     plot_high_fitness_evolution,
@@ -85,6 +86,7 @@ __all__ = [
     "create_default_search_space",
     "create_focused_search_space",
     # Visualization
+    "ParametersToCurves",
     "plot_best_design",
     "plot_fitness_spread_evolution",
     "plot_high_fitness_evolution",

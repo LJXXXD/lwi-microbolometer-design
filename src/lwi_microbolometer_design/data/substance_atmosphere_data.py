@@ -15,7 +15,9 @@ Supports both single-condition and multi-condition simulation setups.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
+from typing import overload
 
 import numpy as np
 import pandas as pd
@@ -23,6 +25,26 @@ import pandas as pd
 from .scene_config import SceneConfig
 
 logger = logging.getLogger(__name__)
+
+
+@overload
+def load_substance_atmosphere_data(
+    spectral_data_file: Path,
+    air_transmittance_file: Path,
+    atmospheric_distance_ratio: float = 0.11,
+    temperature_kelvin: float = 293.15,
+    air_refractive_index: float = 1.0,
+) -> SceneConfig: ...
+
+
+@overload
+def load_substance_atmosphere_data(
+    spectral_data_file: Path,
+    air_transmittance_file: Path,
+    atmospheric_distance_ratio: float | Sequence[float] | np.ndarray = 0.11,
+    temperature_kelvin: float | Sequence[float] | np.ndarray = 293.15,
+    air_refractive_index: float | Sequence[float] | np.ndarray = 1.0,
+) -> list[SceneConfig]: ...
 
 
 def load_substance_atmosphere_data(
@@ -73,6 +95,10 @@ def load_substance_atmosphere_data(
         If any parameter is a list/array: list of :class:`SceneConfig`, one per
         condition. Conditions are generated from all combinations of provided
         parameter values.
+
+        Type checkers treat any ``Sequence[float]`` or ``ndarray`` argument as
+        the multi-condition overload (returning ``list[SceneConfig]``). At
+        runtime, length-1 sequences still yield a single :class:`SceneConfig`.
 
     Examples
     --------

@@ -9,8 +9,9 @@ and solution comparisons.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,6 +26,9 @@ from lwi_microbolometer_design.simulation import gaussian_parameters_to_unit_amp
 
 logger = logging.getLogger(__name__)
 
+# Maps decoded per-basis parameters (e.g. list of (mu, sigma)) to a (wavelengths, n_basis) curve matrix.
+ParametersToCurves: TypeAlias = Callable[[list[tuple[float, float]], np.ndarray], np.ndarray]
+
 # Constants for visualization behavior
 MIN_SOLUTIONS_FOR_IVAT = 10  # Minimum solutions needed for IVAT visualization
 
@@ -34,6 +38,8 @@ def visualize_ga_results(
     scene: SceneConfig,
     output_dir: Path,
     high_fitness_threshold: float = 50.0,
+    *,
+    parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """
     Create comprehensive visualizations of GA results.
@@ -58,6 +64,9 @@ def visualize_ga_results(
         Directory to save visualization plots
     high_fitness_threshold : float, optional
         Threshold for determining which solutions to visualize (default: 50.0)
+    parameters_to_curves : callable, optional
+        Maps ``(parameter_tuples, wavelengths)`` to an array of shape
+        ``(n_wavelengths, n_basis)``. Default: Gaussian unit-amplitude curves.
 
     Notes
     -----
@@ -121,6 +130,7 @@ def visualize_ga_results(
             wavelengths,
             fitness_threshold,
             output_dir,
+            parameters_to_curves=parameters_to_curves,
         )
 
     # 5. IVAT Diversity Analysis
@@ -213,6 +223,8 @@ def plot_top_sensor_designs(
     wavelengths: np.ndarray,
     fitness_threshold: float,
     output_dir: Path,
+    *,
+    parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """
     Plot top sensor designs with improved formatting.
@@ -229,6 +241,8 @@ def plot_top_sensor_designs(
         Fitness threshold used to filter solutions
     output_dir : Path
         Directory to save the plot
+    parameters_to_curves : callable, optional
+        Same contract as :func:`visualize_ga_results` (default: Gaussian curves).
     """
     sorted_indices = np.argsort(high_quality_fitness)[::-1]
     top_10 = high_quality_population[sorted_indices[:10]]
@@ -240,7 +254,7 @@ def plot_top_sensor_designs(
     for i, (chromosome, _fitness) in enumerate(zip(top_10, top_10_fitness, strict=False)):
         # Convert chromosome to list of tuples for gaussian curves
         gaussian_params = [(chromosome[j], chromosome[j + 1]) for j in range(0, len(chromosome), 2)]
-        basis_functions = gaussian_parameters_to_unit_amplitude_curves(gaussian_params, wavelengths)
+        basis_functions = parameters_to_curves(gaussian_params, wavelengths)
         vertical_offset = i * 0.1
 
         # Plot each basis function
@@ -278,11 +292,22 @@ def plot_top_sensor_designs(
     plt.close()
 
     # Also plot the best design
-    plot_best_design(top_10[0], top_10_fitness[0], wavelengths, output_dir)
+    plot_best_design(
+        top_10[0],
+        top_10_fitness[0],
+        wavelengths,
+        output_dir,
+        parameters_to_curves=parameters_to_curves,
+    )
 
 
 def plot_best_design(
-    best_chromosome: np.ndarray, best_fitness: float, wavelengths: np.ndarray, output_dir: Path
+    best_chromosome: np.ndarray,
+    best_fitness: float,
+    wavelengths: np.ndarray,
+    output_dir: Path,
+    *,
+    parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """
     Plot the single best sensor design.
@@ -297,6 +322,8 @@ def plot_best_design(
         Wavelength array for plotting basis functions
     output_dir : Path
         Directory to save the plot
+    parameters_to_curves : callable, optional
+        Same contract as :func:`plot_top_sensor_designs` (default: Gaussian curves).
     """
     plt.figure(figsize=(12, 6))
 
@@ -304,7 +331,7 @@ def plot_best_design(
     gaussian_params = [
         (best_chromosome[j], best_chromosome[j + 1]) for j in range(0, len(best_chromosome), 2)
     ]
-    basis_functions = gaussian_parameters_to_unit_amplitude_curves(gaussian_params, wavelengths)
+    basis_functions = parameters_to_curves(gaussian_params, wavelengths)
 
     # Plot each basis function
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]

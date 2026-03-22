@@ -28,7 +28,6 @@ from .ga import (
 from .simulation import (
     blackbody_emit,
     gaussian_parameters_to_unit_amplitude_curves,
-    generate_structured_gaussian_basis_functions,
     simulate_sensor_output,
 )
 
@@ -58,7 +57,6 @@ __all__ = [
     # Simulation functions
     "blackbody_emit",
     "gaussian_parameters_to_unit_amplitude_curves",
-    "generate_structured_gaussian_basis_functions",  # TODO: Review - temporary copy
     "simulate_sensor_output",
     # Visualization functions
     "visualize_distance_matrix",

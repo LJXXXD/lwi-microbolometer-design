@@ -23,12 +23,13 @@ import numpy as np
 import pandas as pd
 
 from ..data.substance_atmosphere_data import load_substance_atmosphere_data
+from ..simulation.gaussian_parameter_to_curves import gaussian_parameters_to_unit_amplitude_curves
 from .advanced_ga import AdvancedGA
 from .diversity import calculate_population_diversity
 from .experiment import ExperimentConfig
 from .ga_configuration import create_ga_config
 from .mutations import diversity_preserving_mutation
-from .visualization import plot_top_sensor_designs
+from .visualization import ParametersToCurves, plot_top_sensor_designs
 
 logger = logging.getLogger(__name__)
 
@@ -605,6 +606,8 @@ def visualize_top_configurations(
     output_dir: Path,
     top_k: int = 5,
     num_generations_override: int | None = None,
+    *,
+    parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """Generate visualizations for top K configurations.
 
@@ -628,6 +631,8 @@ def visualize_top_configurations(
         Number of top configurations to visualize (default: 5)
     num_generations_override : int | None
         Override number of generations for visualization runs (default: None, uses config value)
+    parameters_to_curves : ParametersToCurves, optional
+        Basis curve generator for design plots (default: Gaussian unit-amplitude curves).
     """
     logger.info(f"\n=== Generating Visualizations for Top {top_k} Configurations ===")
 
@@ -751,6 +756,7 @@ def visualize_top_configurations(
                 wavelengths=wavelengths_1d,
                 fitness_threshold=fitness_threshold,
                 output_dir=config_output_dir,
+                parameters_to_curves=parameters_to_curves,
             )
 
             logger.info(f"  ✓ Visualization saved to {config_output_dir}")
