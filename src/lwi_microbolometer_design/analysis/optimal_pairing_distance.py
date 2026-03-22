@@ -27,6 +27,7 @@ from typing import Any
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import cdist
 
 
 def calculate_optimal_pairing_distance(
@@ -153,138 +154,56 @@ def _ensure_2d_numeric_arrays(
     return a, b
 
 
-def _compute_euclidean_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Euclidean distance."""
-    diff = a[:, None, :] - b[None, :, :]
-    result = np.linalg.norm(diff, axis=2)
-    return np.asarray(result, dtype=np.float64)
+def _cdist_arrays_and_kwargs(
+    metric: str,
+    metric_params: dict[str, Any],
+    a: np.ndarray,
+    b: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, str, dict[str, Any]]:
+    """Map public metric names to :func:`scipy.spatial.distance.cdist` inputs."""
+    kwargs: dict[str, Any] = {}
+    aa, bb = a, b
 
+    if metric == "manhattan":
+        return aa, bb, "cityblock", kwargs
+    if metric == "bray_curtis":
+        return aa, bb, "braycurtis", kwargs
+    if metric == "minkowski":
+        p = float(metric_params.get("p", 2))
+        if p <= 0:
+            raise ValueError("Minkowski p must be > 0")
+        kwargs["p"] = p
+        return aa, bb, "minkowski", kwargs
+    if metric == "mahalanobis":
+        cov_matrix = metric_params.get("cov_matrix")
+        if cov_matrix is None:
+            combined = np.vstack([a, b])
+            cov_matrix = np.cov(combined.T)
+        try:
+            kwargs["VI"] = np.linalg.inv(cov_matrix)
+        except np.linalg.LinAlgError:
+            kwargs["VI"] = np.linalg.pinv(cov_matrix)
+        return aa, bb, "mahalanobis", kwargs
+    if metric == "jaccard":
+        aa = np.asarray(a > 0, dtype=bool)
+        bb = np.asarray(b > 0, dtype=bool)
+        return aa, bb, "jaccard", kwargs
 
-def _compute_manhattan_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Manhattan distance."""
-    diff = a[:, None, :] - b[None, :, :]
-    result = np.abs(diff).sum(axis=2)
-    return np.asarray(result, dtype=np.float64)
+    if metric in {
+        "euclidean",
+        "chebyshev",
+        "cosine",
+        "hamming",
+        "canberra",
+        "correlation",
+    }:
+        return aa, bb, metric, kwargs
 
-
-def _compute_chebyshev_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Chebyshev distance."""
-    diff = a[:, None, :] - b[None, :, :]
-    result = np.abs(diff).max(axis=2)
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_minkowski_distance(
-    a: np.ndarray, b: np.ndarray, metric_params: dict[str, Any]
-) -> np.ndarray:
-    """Compute Minkowski distance."""
-    p = metric_params.get("p", 2)
-    if p <= 0:
-        raise ValueError("Minkowski p must be > 0")
-    diff = np.abs(a[:, None, :] - b[None, :, :]) ** p
-    result = diff.sum(axis=2) ** (1.0 / p)
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_cosine_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute cosine distance."""
-    # Cosine distance = 1 - cosine similarity
-    a_norm = np.linalg.norm(a, axis=1, keepdims=True)
-    b_norm = np.linalg.norm(b, axis=1, keepdims=True)
-    # Handle zero vectors to avoid division by zero
-    a_safe = np.where(a_norm == 0.0, 1.0, a_norm)
-    b_safe = np.where(b_norm == 0.0, 1.0, b_norm)
-    a_unit = a / a_safe
-    b_unit = b / b_safe
-    sim = a_unit @ b_unit.T
-    result = 1.0 - sim
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_hamming_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Hamming distance."""
-    return np.sum(a[:, None, :] != b[None, :, :], axis=2)
-
-
-def _compute_canberra_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Canberra distance."""
-    diff = np.abs(a[:, None, :] - b[None, :, :])
-    denom = np.abs(a[:, None, :]) + np.abs(b[None, :, :])
-    # Avoid division by zero
-    denom = np.where(denom == 0.0, 1.0, denom)
-    result = np.sum(diff / denom, axis=2)
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_bray_curtis_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Bray-Curtis distance."""
-    diff = np.abs(a[:, None, :] - b[None, :, :])
-    sum_diff = np.sum(diff, axis=2)
-    sum_total = np.sum(a[:, None, :] + b[None, :, :], axis=2)
-    # Avoid division by zero
-    sum_total = np.where(sum_total == 0.0, 1.0, sum_total)
-    result = sum_diff / sum_total
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_jaccard_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute Jaccard distance."""
-    # Convert to binary if not already
-    a_binary = (a > 0).astype(float)
-    b_binary = (b > 0).astype(float)
-    intersection = a_binary @ b_binary.T
-    union = (
-        np.sum(a_binary, axis=1, keepdims=True)
-        + np.sum(b_binary, axis=1, keepdims=True).T
-        - intersection
+    raise ValueError(
+        "Unsupported metric. Choose one of: 'euclidean', 'manhattan', "
+        "'chebyshev', 'minkowski', 'cosine', 'hamming', 'canberra', "
+        "'bray_curtis', 'jaccard', 'correlation', 'mahalanobis'."
     )
-    # Avoid division by zero
-    union = np.where(union == 0.0, 1.0, union)
-    result = 1.0 - (intersection / union)
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_correlation_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Compute correlation distance."""
-    # Center the data
-    a_centered = a - np.mean(a, axis=1, keepdims=True)
-    b_centered = b - np.mean(b, axis=1, keepdims=True)
-    # Compute correlation
-    numerator = a_centered @ b_centered.T
-    a_std = np.sqrt(np.sum(a_centered**2, axis=1, keepdims=True))
-    b_std = np.sqrt(np.sum(b_centered**2, axis=1, keepdims=True))
-    denominator = a_std @ b_std.T
-    # Avoid division by zero
-    denominator = np.where(denominator == 0.0, 1.0, denominator)
-    correlation = numerator / denominator
-    result = 1.0 - correlation
-    return np.asarray(result, dtype=np.float64)
-
-
-def _compute_mahalanobis_distance(
-    a: np.ndarray, b: np.ndarray, metric_params: dict[str, Any]
-) -> np.ndarray:
-    """Compute Mahalanobis distance."""
-    cov_matrix = metric_params.get("cov_matrix")
-    if cov_matrix is None:
-        # Use sample covariance if not provided
-        combined = np.vstack([a, b])
-        cov_matrix = np.cov(combined.T)
-
-    try:
-        cov_inv = np.linalg.inv(cov_matrix)
-    except np.linalg.LinAlgError:
-        # Fall back to pseudo-inverse if singular
-        cov_inv = np.linalg.pinv(cov_matrix)
-
-    diff = a[:, None, :] - b[None, :, :]  # Shape: (n, n, d)
-    # Compute Mahalanobis distance for each pair
-    distances = np.zeros((len(a), len(b)))
-    for i in range(len(a)):
-        for j in range(len(b)):
-            d = diff[i, j]
-            distances[i, j] = np.sqrt(d.T @ cov_inv @ d)
-    return distances
 
 
 def _pairwise_distances_vectorized(
@@ -293,49 +212,9 @@ def _pairwise_distances_vectorized(
     metric: str,
     metric_params: dict[str, Any] | None = None,
 ) -> np.ndarray:
-    """Compute pairwise distances using vectorized operations for supported metrics.
-
-    Supported metrics: euclidean, manhattan, chebyshev, minkowski, cosine,
-    hamming, canberra, bray_curtis, jaccard, correlation, mahalanobis.
-
-    Uses dictionary dispatch pattern (Python's equivalent of switch statement)
-    to avoid long if/elif chains and multiple return statements.
-    """
+    """Compute pairwise distances between rows of ``a`` and ``b`` via SciPy ``cdist``."""
     if metric_params is None:
         metric_params = {}
 
-    # Dictionary dispatch: map metric names to computation functions
-    # This is Python's equivalent of a switch statement
-    # Metrics that don't require metric_params
-    metric_functions: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
-        "euclidean": _compute_euclidean_distance,
-        "manhattan": _compute_manhattan_distance,
-        "chebyshev": _compute_chebyshev_distance,
-        "cosine": _compute_cosine_distance,
-        "hamming": _compute_hamming_distance,
-        "canberra": _compute_canberra_distance,
-        "bray_curtis": _compute_bray_curtis_distance,
-        "jaccard": _compute_jaccard_distance,
-        "correlation": _compute_correlation_distance,
-    }
-
-    # Metrics that require metric_params
-    metric_functions_with_params: dict[
-        str, Callable[[np.ndarray, np.ndarray, dict[str, Any]], np.ndarray]
-    ] = {
-        "minkowski": _compute_minkowski_distance,
-        "mahalanobis": _compute_mahalanobis_distance,
-    }
-
-    # Single dispatch lookup and return statement
-    if metric in metric_functions:
-        return metric_functions[metric](a, b)
-    if metric in metric_functions_with_params:
-        return metric_functions_with_params[metric](a, b, metric_params)
-
-    # Unsupported metric
-    raise ValueError(
-        "Unsupported metric. Choose one of: 'euclidean', 'manhattan', "
-        "'chebyshev', 'minkowski', 'cosine', 'hamming', 'canberra', "
-        "'bray_curtis', 'jaccard', 'correlation', 'mahalanobis'."
-    )
+    aa, bb, scipy_metric, kwargs = _cdist_arrays_and_kwargs(metric, metric_params, a, b)
+    return np.asarray(cdist(aa, bb, metric=scipy_metric, **kwargs), dtype=np.float64)

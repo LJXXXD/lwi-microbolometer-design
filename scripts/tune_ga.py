@@ -9,14 +9,16 @@ import logging
 import multiprocessing as mp
 from pathlib import Path
 
-from lwi_microbolometer_design.ga.tuning import (
+from lwi_microbolometer_design.ga.experiment import (
     ExperimentConfig,
+    create_fitness_evaluator_from_experiment,
+    create_gene_space_from_experiment,
+    create_search_space_from_experiment,
+    load_experiment_config,
+)
+from lwi_microbolometer_design.ga.tuning import (
     HyperparameterSearchSpace,
     HyperparameterTuner,
-    load_experiment_config,
-    create_fitness_evaluator_from_experiment,
-    create_search_space_from_experiment,
-    create_gene_space_from_experiment,
     visualize_top_configurations,
 )
 
