@@ -26,7 +26,7 @@ from lwi_microbolometer_design import (
     gaussian_parameters_to_unit_amplitude_curves,
     spectral_angle_mapper,
 )
-from lwi_microbolometer_design.data import load_substance_atmosphere_data
+from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 from lwi_microbolometer_design.ga import (
     AdvancedGA,
     MinDissimilarityFitnessEvaluator,
@@ -56,7 +56,7 @@ plt.rcParams["font.size"] = 12
 
 
 def run_optimized_ga(
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     gene_space: list[dict[str, float]],
     ga_config: dict,
     params_per_basis_function: int,
@@ -75,51 +75,13 @@ def run_optimized_ga(
     logger.info("\n=== Running Optimized GA ===")
 
     # Create fitness function using class-based evaluator (pickleable for multiprocessing)
-    # Ensure types are correct (data dict values can be np.ndarray | float)
-    wavelengths_val = data["wavelengths"]
-    emissivity_val = data["emissivity_curves"]
-    temp_k_val = data["temperature_K"]
-    atm_dist_val = data["atmospheric_distance_ratio"]
-    air_ref_idx_val = data["air_refractive_index"]
-    air_trans_val = data["air_transmittance"]
-
-    # Type conversions to match function signatures
-    # Data dict values are np.ndarray | float, so handle both cases
-    if isinstance(wavelengths_val, np.ndarray):
-        wavelengths_array = wavelengths_val
-    else:
-        # Must be a float scalar, convert to 1D array
-        wavelengths_array = np.array([float(wavelengths_val)])
-
-    if isinstance(emissivity_val, np.ndarray):
-        emissivity_array = emissivity_val
-    else:
-        # Must be a float scalar, convert to 1D array
-        emissivity_array = np.array([float(emissivity_val)])
-
-    temperature_float: float = (
-        float(temp_k_val) if not isinstance(temp_k_val, float) else temp_k_val
-    )
-    atm_dist_float: float = (
-        float(atm_dist_val) if not isinstance(atm_dist_val, float) else atm_dist_val
-    )
-    air_ref_idx_float: float = (
-        float(air_ref_idx_val) if not isinstance(air_ref_idx_val, float) else air_ref_idx_val
-    )
-
-    if isinstance(air_trans_val, np.ndarray):
-        air_trans_array = air_trans_val
-    else:
-        # Must be a float scalar, convert to 1D array
-        air_trans_array = np.array([float(air_trans_val)])
-
     fitness_func = MinDissimilarityFitnessEvaluator(
-        wavelengths=wavelengths_array,
-        emissivity_curves=emissivity_array,
-        temperature_k=temperature_float,
-        atmospheric_distance_ratio=atm_dist_float,
-        air_refractive_index=air_ref_idx_float,
-        air_transmittance=air_trans_array,
+        wavelengths=scene.wavelengths,
+        emissivity_curves=scene.emissivity_curves,
+        temperature_k=scene.temperature_k,
+        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+        air_refractive_index=scene.air_refractive_index,
+        air_transmittance=scene.air_transmittance,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=params_per_basis_function,
         distance_metric=spectral_angle_mapper,
@@ -229,7 +191,7 @@ def run_optimized_ga(
 
 def run_single_experiment(
     config_info: dict[str, Any],
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     gene_space: list[dict[str, float]],
     params_per_basis_function: int,
     high_fitness_threshold: float = 50.0,
@@ -238,7 +200,7 @@ def run_single_experiment(
     """Run a single GA configuration in a separate process."""
     try:
         result = run_optimized_ga(
-            data,
+            scene,
             gene_space,
             config_info["config"],
             params_per_basis_function,
@@ -252,7 +214,7 @@ def run_single_experiment(
 
 
 def run_multiple_experiments(
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     gene_space: list[dict[str, float]],
     params_per_basis_function: int,
     random_seed: int | None = None,
@@ -267,8 +229,8 @@ def run_multiple_experiments(
 
     Parameters
     ----------
-    data : dict
-        Simulation input data dictionary
+    scene : SceneConfig
+        Loaded physical scene for fitness evaluation
     gene_space : list
         Gene space bounds for GA
     params_per_basis_function : int
@@ -373,7 +335,7 @@ def run_multiple_experiments(
             executor.submit(
                 run_single_experiment,
                 config_info,
-                data,
+                scene,
                 gene_space,
                 params_per_basis_function,
                 high_fitness_threshold,
@@ -543,9 +505,9 @@ def main() -> None:
         if isinstance(loaded_data, list):
             if len(loaded_data) > 1:
                 logger.warning("Multi-condition data detected, using first condition only")
-            data: dict[str, np.ndarray | float] = loaded_data[0]
+            scene: SceneConfig = loaded_data[0]
         else:
-            data = loaded_data
+            scene = loaded_data
 
         gene_space = param_bounds * num_basis_functions
 
@@ -553,7 +515,7 @@ def main() -> None:
             # Run multiple experiments for comparison
             logger.info("\n=== Running Multiple Experiments ===")
             all_results = run_multiple_experiments(
-                data,
+                scene,
                 gene_space,
                 num_params_per_basis_function,
                 random_seed,
@@ -602,7 +564,7 @@ def main() -> None:
 
             logger.info("\n=== Step 3: Running Optimized GA ===")
             ga_result = run_optimized_ga(
-                data,
+                scene,
                 gene_space,
                 ga_config,
                 num_params_per_basis_function,
@@ -612,7 +574,7 @@ def main() -> None:
 
         # Visualize results
         logger.info("\n=== Step 4: Visualizing Results ===")
-        visualize_ga_results(ga_result, data, output_dir, high_fitness_threshold)
+        visualize_ga_results(ga_result, scene, output_dir, high_fitness_threshold)
 
         # Save summary
         logger.info("\n=== Step 5: Saving Summary ===")

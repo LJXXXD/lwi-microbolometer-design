@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from lwi_microbolometer_design.analysis.distance_metrics import spectral_angle_mapper
-from lwi_microbolometer_design.data import load_substance_atmosphere_data
+from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 from lwi_microbolometer_design.ga import (
     AdvancedGA,
     MinDissimilarityFitnessEvaluator,
@@ -75,7 +75,7 @@ GA_CONFIG = {
 
 
 def run_single_baseline_run(
-    data: dict,
+    scene: SceneConfig,
     gene_space: list[dict[str, float]],
     run_idx: int,
     random_seed: int,
@@ -84,8 +84,8 @@ def run_single_baseline_run(
 
     Parameters
     ----------
-    data : dict
-        Loaded spectral data dictionary
+    scene : SceneConfig
+        Loaded spectral scene configuration
     gene_space : list[dict[str, float]]
         Gene space bounds
     run_idx : int
@@ -103,12 +103,12 @@ def run_single_baseline_run(
 
     # Create fitness function
     fitness_func = MinDissimilarityFitnessEvaluator(
-        wavelengths=data["wavelengths"],
-        emissivity_curves=data["emissivity_curves"],
-        temperature_K=data["temperature_K"],
-        atmospheric_distance_ratio=data["atmospheric_distance_ratio"],
-        air_refractive_index=data["air_refractive_index"],
-        air_transmittance=data["air_transmittance"],
+        wavelengths=scene.wavelengths,
+        emissivity_curves=scene.emissivity_curves,
+        temperature_k=scene.temperature_k,
+        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+        air_refractive_index=scene.air_refractive_index,
+        air_transmittance=scene.air_transmittance,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=PARAMS_PER_BASIS_FUNCTION,
         distance_metric=spectral_angle_mapper,
@@ -216,7 +216,7 @@ def main() -> None:
 
     # Load data
     logger.info("\nLoading spectral data...")
-    data = load_substance_atmosphere_data(
+    loaded = load_substance_atmosphere_data(
         spectral_data_file=SPECTRAL_DATA_FILE,
         air_transmittance_file=AIR_TRANSMITTANCE_FILE,
         atmospheric_distance_ratio=ATMOSPHERIC_DISTANCE_RATIO,
@@ -225,10 +225,12 @@ def main() -> None:
     )
 
     # Handle multi-condition data (should be single condition)
-    if isinstance(data, list):
-        if len(data) > 1:
+    if isinstance(loaded, list):
+        if len(loaded) > 1:
             logger.warning("Multi-condition data detected, using first condition only")
-        data = data[0]
+        scene = loaded[0]
+    else:
+        scene = loaded
 
     # Create gene space
     gene_space = PARAM_BOUNDS * NUM_BASIS_FUNCTIONS
@@ -240,7 +242,7 @@ def main() -> None:
 
     for run_idx in range(args.num_runs):
         random_seed = args.random_seed_base + run_idx
-        result = run_single_baseline_run(data, gene_space, run_idx, random_seed)
+        result = run_single_baseline_run(scene, gene_space, run_idx, random_seed)
         results.append(result)
 
     # Create results DataFrame

@@ -29,6 +29,7 @@ from lwi_microbolometer_design import (
     spectral_angle_mapper,
     vat_reorder,
 )
+from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 from lwi_microbolometer_design.ga import (
     AdvancedGA,
     MinDissimilarityFitnessEvaluator,
@@ -56,9 +57,9 @@ def load_data(
     atmospheric_distance_ratio: float = 0.11,
     temperature_kelvin: float = 293.15,
     air_refractive_index: float = 1.0,
-) -> dict[str, np.ndarray | float]:
+) -> SceneConfig:
     """
-    Load spectral data and configuration parameters.
+    Load spectral data and configuration parameters via the package loader.
 
     Parameters
     ----------
@@ -72,29 +73,24 @@ def load_data(
         Scene temperature in Kelvin. Default: 293.15
     air_refractive_index : float, optional
         Air refractive index. Default: 1.0
+
+    Returns
+    -------
+    SceneConfig
+        Canonical scene for the given scalar parameters (first condition if expanded).
     """
-    # Load spectral data
-    substances_spectral_data = pd.read_excel(spectral_data_file)
-    wavelengths = substances_spectral_data.iloc[:, :1].to_numpy()
-    substance_names = substances_spectral_data.columns[1:].to_numpy()
-    emissivity_curves = substances_spectral_data.iloc[:, 1:].to_numpy()
-
-    # Load air transmittance
-    air_transmittance_df = pd.read_excel(air_transmittance_file, header=None)
-    air_transmittance: np.ndarray = air_transmittance_df.to_numpy()[:, 1:]
-
-    logger.info(f"Loaded spectral data for {len(substance_names)} substances")
-    logger.info(f"Wavelength range: {wavelengths[0][0]:.1f} - {wavelengths[-1][0]:.1f} µm")
-
-    return {
-        "wavelengths": wavelengths,
-        "substance_names": substance_names,
-        "emissivity_curves": emissivity_curves,
-        "air_transmittance": air_transmittance,
-        "atmospheric_distance_ratio": atmospheric_distance_ratio,
-        "temperature_kelvin": temperature_kelvin,
-        "air_refractive_index": air_refractive_index,
-    }
+    loaded = load_substance_atmosphere_data(
+        spectral_data_file=spectral_data_file,
+        air_transmittance_file=air_transmittance_file,
+        atmospheric_distance_ratio=atmospheric_distance_ratio,
+        temperature_kelvin=temperature_kelvin,
+        air_refractive_index=air_refractive_index,
+    )
+    if isinstance(loaded, list):
+        if len(loaded) > 1:
+            logger.warning("Multi-condition data detected, using first condition only")
+        return loaded[0]
+    return loaded
 
 
 def default_ga_configuration(num_generations: int = 2000) -> dict:
@@ -330,7 +326,7 @@ def load_ga_configuration_from_csv(
 
 
 def run_optimized_ga(
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     gene_space: list[dict[str, float]],
     ga_config: dict,
     params_per_basis_function: int,
@@ -350,12 +346,12 @@ def run_optimized_ga(
 
     # Create fitness function using class-based evaluator (pickleable for multiprocessing)
     fitness_func = MinDissimilarityFitnessEvaluator(
-        wavelengths=data["wavelengths"],
-        emissivity_curves=data["emissivity_curves"],
-        temperature_K=data["temperature_kelvin"],
-        atmospheric_distance_ratio=data["atmospheric_distance_ratio"],
-        air_refractive_index=data["air_refractive_index"],
-        air_transmittance=data["air_transmittance"],
+        wavelengths=scene.wavelengths,
+        emissivity_curves=scene.emissivity_curves,
+        temperature_k=scene.temperature_k,
+        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+        air_refractive_index=scene.air_refractive_index,
+        air_transmittance=scene.air_transmittance,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=params_per_basis_function,
         distance_metric=spectral_angle_mapper,
@@ -476,7 +472,7 @@ def calculate_population_diversity(population: np.ndarray) -> float:
 
 def visualize_ga_results(
     result: dict,
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     output_dir: Path,
     high_fitness_threshold: float = 50.0,
 ) -> None:
@@ -489,8 +485,7 @@ def visualize_ga_results(
     """
     logger.info("\n=== Creating Visualizations ===")
 
-    wavelengths_arr = data["wavelengths"]
-    wavelengths: np.ndarray = wavelengths_arr.flatten()
+    wavelengths: np.ndarray = np.asarray(scene.wavelengths)
     fitness_threshold = high_fitness_threshold
 
     # Get high-quality solutions
@@ -804,7 +799,7 @@ def plot_fitness_spread_evolution(result: dict, output_dir: Path) -> None:
 
 def run_single_experiment(
     config_info: dict,
-    data: dict,
+    scene: SceneConfig,
     gene_space: list,
     params_per_basis_function: int,
     high_fitness_threshold: float = 50.0,
@@ -813,7 +808,7 @@ def run_single_experiment(
     """Run a single GA configuration in a separate process."""
     try:
         result = run_optimized_ga(
-            data,
+            scene,
             gene_space,
             config_info["config"],
             params_per_basis_function,
@@ -827,7 +822,7 @@ def run_single_experiment(
 
 
 def run_multiple_experiments(
-    data: dict,
+    scene: SceneConfig,
     gene_space: list,
     params_per_basis_function: int,
     random_seed: int | None = None,
@@ -989,7 +984,7 @@ def run_multiple_experiments(
             executor.submit(
                 run_single_experiment,
                 config_info,
-                data,
+                scene,
                 gene_space,
                 params_per_basis_function,
                 high_fitness_threshold,
@@ -1145,7 +1140,7 @@ def main() -> None:
     try:
         # Load data
         logger.info("\n=== Step 1: Loading Data ===")
-        data = load_data(
+        scene = load_data(
             spectral_data_file=spectral_data_file,
             air_transmittance_file=air_transmittance_file,
             atmospheric_distance_ratio=atmospheric_distance_ratio,
@@ -1161,7 +1156,7 @@ def main() -> None:
             # Run multiple experiments for comparison
             logger.info("\n=== Running Multiple Experiments ===")
             all_results = run_multiple_experiments(
-                data,
+                scene,
                 gene_space,
                 num_params_per_basis_function,
                 random_seed,
@@ -1210,7 +1205,7 @@ def main() -> None:
 
             logger.info("\n=== Step 3: Running Optimized GA ===")
             ga_result = run_optimized_ga(
-                data,
+                scene,
                 gene_space,
                 ga_config,
                 num_params_per_basis_function,
@@ -1220,7 +1215,7 @@ def main() -> None:
 
         # Visualize results
         logger.info("\n=== Step 4: Visualizing Results ===")
-        visualize_ga_results(ga_result, data, output_dir, high_fitness_threshold)
+        visualize_ga_results(ga_result, scene, output_dir, high_fitness_threshold)
 
         # Save summary
         logger.info("\n=== Step 5: Saving Summary ===")

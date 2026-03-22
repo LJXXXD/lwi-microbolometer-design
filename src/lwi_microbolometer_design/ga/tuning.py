@@ -717,7 +717,7 @@ def create_fitness_evaluator_from_experiment(
         Fitness function compatible with PyGAD
     """
     # Load data
-    data = load_substance_atmosphere_data(
+    loaded = load_substance_atmosphere_data(
         spectral_data_file=Path(experiment.data["spectral_data_file"]),
         air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
         atmospheric_distance_ratio=experiment.data.get("atmospheric_distance_ratio", 0.11),
@@ -726,56 +726,20 @@ def create_fitness_evaluator_from_experiment(
     )
 
     # Handle multi-condition data (should be single condition for tuning)
-    if isinstance(data, list):
-        if len(data) > 1:
+    if isinstance(loaded, list):
+        if len(loaded) > 1:
             logger.warning("Multi-condition data detected, using first condition only")
-        data = data[0]
-
-    # Create fitness evaluator (ensure proper types from data dict)
-    wavelengths_val = data["wavelengths"]
-    emissivity_val = data["emissivity_curves"]
-    temp_k_val = data["temperature_K"]
-    atm_dist_val = data["atmospheric_distance_ratio"]
-    air_ref_idx_val = data["air_refractive_index"]
-    air_trans_val = data["air_transmittance"]
-
-    # Ensure arrays are arrays and scalars are floats
-    # Data dict values are np.ndarray | float, so handle both cases
-    if isinstance(wavelengths_val, np.ndarray):
-        wavelengths_array = wavelengths_val
+        scene = loaded[0]
     else:
-        # Must be a float scalar, convert to 1D array
-        wavelengths_array = np.array([float(wavelengths_val)])
-
-    if isinstance(emissivity_val, np.ndarray):
-        emissivity_array = emissivity_val
-    else:
-        # Must be a float scalar, convert to 1D array
-        emissivity_array = np.array([float(emissivity_val)])
-
-    temperature_float: float = (
-        float(temp_k_val) if not isinstance(temp_k_val, float) else temp_k_val
-    )
-    atm_dist_float: float = (
-        float(atm_dist_val) if not isinstance(atm_dist_val, float) else atm_dist_val
-    )
-    air_ref_idx_float: float = (
-        float(air_ref_idx_val) if not isinstance(air_ref_idx_val, float) else air_ref_idx_val
-    )
-
-    if isinstance(air_trans_val, np.ndarray):
-        air_trans_array = air_trans_val
-    else:
-        # Must be a float scalar, convert to 1D array
-        air_trans_array = np.array([float(air_trans_val)])
+        scene = loaded
 
     evaluator = MinDissimilarityFitnessEvaluator(
-        wavelengths=wavelengths_array,
-        emissivity_curves=emissivity_array,
-        temperature_k=temperature_float,
-        atmospheric_distance_ratio=atm_dist_float,
-        air_refractive_index=air_ref_idx_float,
-        air_transmittance=air_trans_array,
+        wavelengths=scene.wavelengths,
+        emissivity_curves=scene.emissivity_curves,
+        temperature_k=scene.temperature_k,
+        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+        air_refractive_index=scene.air_refractive_index,
+        air_transmittance=scene.air_transmittance,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=experiment.sensor["params_per_basis_function"],
         distance_metric=spectral_angle_mapper,
@@ -885,7 +849,7 @@ def visualize_top_configurations(
     top_configs = results_df.head(top_k)
 
     # Load data to get wavelengths for visualization
-    data = load_substance_atmosphere_data(
+    loaded = load_substance_atmosphere_data(
         spectral_data_file=Path(experiment.data["spectral_data_file"]),
         air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
         atmospheric_distance_ratio=experiment.data.get("atmospheric_distance_ratio", 0.11),
@@ -894,12 +858,14 @@ def visualize_top_configurations(
     )
 
     # Handle multi-condition data
-    if isinstance(data, list):
-        if len(data) > 1:
+    if isinstance(loaded, list):
+        if len(loaded) > 1:
             logger.warning("Multi-condition data detected, using first condition only")
-        data = data[0]
+        scene = loaded[0]
+    else:
+        scene = loaded
 
-    wavelengths = data["wavelengths"]
+    wavelengths = scene.wavelengths
     fitness_threshold = experiment.execution.get("fitness_threshold", 45.0)
 
     for idx, (_, config_row) in enumerate(top_configs.iterrows(), 1):
@@ -990,17 +956,8 @@ def visualize_top_configurations(
             config_output_dir = output_dir / f"top_{idx}_config"
             config_output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Generate visualization
-            # Ensure wavelengths is 1D array (explicit type conversion)
-            # wavelengths from data dict is np.ndarray | float
-            if isinstance(wavelengths, np.ndarray):
-                wavelengths_array = wavelengths
-            else:
-                # Must be a float scalar, convert to 1D array
-                wavelengths_array = np.array([float(wavelengths)])
-            wavelengths_1d: np.ndarray = (
-                wavelengths_array.flatten() if wavelengths_array.ndim > 1 else wavelengths_array
-            )
+            # Generate visualization (scene wavelengths are canonical 1D)
+            wavelengths_1d = np.asarray(wavelengths)
 
             plot_top_sensor_designs(
                 high_quality_population=high_quality_population,

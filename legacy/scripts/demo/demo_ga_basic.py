@@ -100,7 +100,7 @@ def main() -> None:
     try:
         # Load data
         logger.info("\n=== Loading Data ===")
-        data = load_substance_atmosphere_data(
+        loaded = load_substance_atmosphere_data(
             spectral_data_file=spectral_data_file,
             air_transmittance_file=air_transmittance_file,
             atmospheric_distance_ratio=atmospheric_distance_ratio,
@@ -108,21 +108,23 @@ def main() -> None:
             air_refractive_index=air_refractive_index,
         )
         # Handle multi-condition data
-        if isinstance(data, list):
-            if len(data) > 1:
+        if isinstance(loaded, list):
+            if len(loaded) > 1:
                 logger.warning("Multi-condition data detected, using first condition only")
-            data = data[0]
+            scene = loaded[0]
+        else:
+            scene = loaded
         logger.info("✓ Data loaded successfully.")
 
         # Create fitness function
         logger.info("\n=== Creating Fitness Evaluator ===")
         fitness_evaluator = MinDissimilarityFitnessEvaluator(
-            wavelengths=data["wavelengths"],
-            emissivity_curves=data["emissivity_curves"],
-            temperature_K=data["temperature_K"],
-            atmospheric_distance_ratio=data["atmospheric_distance_ratio"],
-            air_refractive_index=data["air_refractive_index"],
-            air_transmittance=data["air_transmittance"],
+            wavelengths=scene.wavelengths,
+            emissivity_curves=scene.emissivity_curves,
+            temperature_k=scene.temperature_k,
+            atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+            air_refractive_index=scene.air_refractive_index,
+            air_transmittance=scene.air_transmittance,
             parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
             params_per_basis_function=num_params_per_basis_function,
             distance_metric=spectral_angle_mapper,

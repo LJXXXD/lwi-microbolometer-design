@@ -601,10 +601,6 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
     ...     ...
     ... )
     """
-    # DEBUG: Verify mutation function is being called - MUST be first line
-    print(
-        f"DEBUG: Mutation function CALLED - offspring shape: {offspring.shape if offspring is not None else None}"
-    )
     if offspring is None or len(offspring) == 0:
         return offspring
 

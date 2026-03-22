@@ -64,7 +64,7 @@ def extract_basic_results(ga_instance: AdvancedGA) -> dict[str, Any]:
         >>> ga = AdvancedGA(...)
         >>> ga.run()
         >>> results = extract_basic_results(ga)
-        >>> visualize_ga_results(results, data, output_dir)
+        >>> visualize_ga_results(results, scene, output_dir)
 
     Extended usage (adding custom fields):
         >>> results = extract_basic_results(ga)
@@ -74,7 +74,7 @@ def extract_basic_results(ga_instance: AdvancedGA) -> dict[str, Any]:
     # Extract best fitness history (PyGAD tracks this automatically)
     best_fitness_history = (
         list(ga_instance.best_solutions_fitness)
-        if hasattr(ga_instance, 'best_solutions_fitness')
+        if hasattr(ga_instance, "best_solutions_fitness")
         and ga_instance.best_solutions_fitness is not None
         else []
     )
@@ -85,7 +85,7 @@ def extract_basic_results(ga_instance: AdvancedGA) -> dict[str, Any]:
     )
     final_fitness_scores = (
         ga_instance.last_generation_fitness
-        if hasattr(ga_instance, 'last_generation_fitness')
+        if hasattr(ga_instance, "last_generation_fitness")
         and ga_instance.last_generation_fitness is not None
         else np.array([])
     )
@@ -112,7 +112,7 @@ def extract_basic_results(ga_instance: AdvancedGA) -> dict[str, Any]:
         diversity_history = []
 
     # Get best solution
-    if hasattr(ga_instance, 'best_solution'):
+    if hasattr(ga_instance, "best_solution"):
         try:
             best_chromosome, best_fitness, _best_idx = ga_instance.best_solution()
         except Exception:
@@ -124,13 +124,13 @@ def extract_basic_results(ga_instance: AdvancedGA) -> dict[str, Any]:
 
     # Build result dict
     result_dict: dict[str, Any] = {
-        'best_fitness': best_fitness,
-        'best_chromosome': best_chromosome,
-        'final_population': final_population,
-        'final_fitness_scores': final_fitness_scores,
-        'best_fitness_history': best_fitness_history,
-        'mean_fitness_history': mean_fitness_history,
-        'diversity_history': diversity_history,
+        "best_fitness": best_fitness,
+        "best_chromosome": best_chromosome,
+        "final_population": final_population,
+        "final_fitness_scores": final_fitness_scores,
+        "best_fitness_history": best_fitness_history,
+        "mean_fitness_history": mean_fitness_history,
+        "diversity_history": diversity_history,
     }
 
     return result_dict

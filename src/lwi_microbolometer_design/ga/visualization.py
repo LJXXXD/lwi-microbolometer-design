@@ -20,6 +20,7 @@ from lwi_microbolometer_design.analysis import (
     ivat_transform,
     vat_reorder,
 )
+from lwi_microbolometer_design.data.scene_config import SceneConfig
 from lwi_microbolometer_design.simulation import gaussian_parameters_to_unit_amplitude_curves
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ MIN_SOLUTIONS_FOR_IVAT = 10  # Minimum solutions needed for IVAT visualization
 
 def visualize_ga_results(
     result: dict[str, Any],
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     output_dir: Path,
     high_fitness_threshold: float = 50.0,
 ) -> None:
@@ -51,8 +52,8 @@ def visualize_ga_results(
         - final_population: array of final generation chromosomes
         - high_fitness_count_history: (optional) list of high-fitness counts
         - fitness_std_history: (optional) list of fitness std dev per generation
-    data : dict[str, np.ndarray | float]
-        Data dictionary containing wavelengths and other simulation parameters
+    scene : SceneConfig
+        Loaded scene configuration (wavelength grid and substance spectra).
     output_dir : Path
         Directory to save visualization plots
     high_fitness_threshold : float, optional
@@ -65,22 +66,21 @@ def visualize_ga_results(
     - To extract results from an AdvancedGA instance, use extract_basic_results()
       before calling this function
     """
-    logger.info('\n=== Creating Visualizations ===')
+    logger.info("\n=== Creating Visualizations ===")
 
-    wavelengths_arr = data['wavelengths']
-    wavelengths: np.ndarray = wavelengths_arr.flatten()
+    wavelengths: np.ndarray = np.asarray(scene.wavelengths)
     fitness_threshold = high_fitness_threshold
 
     # Validate required fields
-    required_fields = ['final_fitness_scores', 'final_population']
+    required_fields = ["final_fitness_scores", "final_population"]
     missing_fields = [field for field in required_fields if field not in result]
     if missing_fields:
-        msg = f'Missing required fields in result: {missing_fields}'
+        msg = f"Missing required fields in result: {missing_fields}"
         raise ValueError(msg)
 
     # Get high-quality solutions (convert to arrays with explicit type checking)
-    fitness_data = result['final_fitness_scores']
-    population_data = result['final_population']
+    fitness_data = result["final_fitness_scores"]
+    population_data = result["final_population"]
     final_fitness = (
         np.array(fitness_data) if not isinstance(fitness_data, np.ndarray) else fitness_data
     )
@@ -91,7 +91,7 @@ def visualize_ga_results(
     )
 
     if final_fitness.size == 0 or final_population.size == 0:
-        logger.warning('Empty population or fitness scores - skipping visualizations')
+        logger.warning("Empty population or fitness scores - skipping visualizations")
         return
 
     high_quality_mask = final_fitness >= fitness_threshold
@@ -99,16 +99,16 @@ def visualize_ga_results(
     high_quality_fitness = final_fitness[high_quality_mask]
 
     # 1. Fitness Evolution
-    if 'best_fitness_history' in result and len(result['best_fitness_history']) > 0:
+    if "best_fitness_history" in result and len(result["best_fitness_history"]) > 0:
         _plot_fitness_evolution(result, output_dir)
     else:
-        logger.warning('best_fitness_history not available - skipping fitness evolution plot')
+        logger.warning("best_fitness_history not available - skipping fitness evolution plot")
 
     # 2. Diversity Evolution
-    if 'diversity_history' in result and len(result['diversity_history']) > 0:
+    if "diversity_history" in result and len(result["diversity_history"]) > 0:
         _plot_diversity_evolution(result, output_dir)
     else:
-        logger.warning('diversity_history not available - skipping diversity evolution plot')
+        logger.warning("diversity_history not available - skipping diversity evolution plot")
 
     # 3. Final Fitness Distribution
     _plot_fitness_distribution(result, output_dir)
@@ -129,45 +129,45 @@ def visualize_ga_results(
 
     # 6. High-Fitness Count Evolution (Multimodal Analysis)
     if (
-        'high_fitness_count_history' in result
-        and result['high_fitness_count_history'] is not None
-        and len(result['high_fitness_count_history']) > 0
+        "high_fitness_count_history" in result
+        and result["high_fitness_count_history"] is not None
+        and len(result["high_fitness_count_history"]) > 0
     ):
         plot_high_fitness_evolution(result, output_dir)
     else:
-        logger.debug('high_fitness_count_history not available - skipping high-fitness count plot')
+        logger.debug("high_fitness_count_history not available - skipping high-fitness count plot")
 
     # 7. Fitness Distribution Evolution (Heatmap)
     if (
-        'fitness_std_history' in result
-        and result['fitness_std_history'] is not None
-        and len(result['fitness_std_history']) > 0
+        "fitness_std_history" in result
+        and result["fitness_std_history"] is not None
+        and len(result["fitness_std_history"]) > 0
     ):
         plot_fitness_spread_evolution(result, output_dir)
     else:
-        logger.debug('fitness_std_history not available - skipping fitness spread plot')
+        logger.debug("fitness_std_history not available - skipping fitness spread plot")
 
-    logger.info(f'Visualizations saved to {output_dir}')
+    logger.info(f"Visualizations saved to {output_dir}")
 
 
 def _plot_fitness_evolution(result: dict[str, np.ndarray | list[float]], output_dir: Path) -> None:
     """Plot fitness evolution over generations."""
     plt.figure(figsize=(12, 6))
-    plt.plot(result['best_fitness_history'], label='Best Fitness', linewidth=2, color='#1f77b4')
+    plt.plot(result["best_fitness_history"], label="Best Fitness", linewidth=2, color="#1f77b4")
     plt.plot(
-        result['mean_fitness_history'],
-        label='Mean Fitness',
+        result["mean_fitness_history"],
+        label="Mean Fitness",
         linewidth=1.5,
-        color='#ff7f0e',
-        linestyle='--',
+        color="#ff7f0e",
+        linestyle="--",
     )
-    plt.xlabel('Generation', fontsize=14)
-    plt.ylabel('Fitness Score', fontsize=14)
-    plt.title('GA Fitness Evolution', fontsize=16, fontweight='bold')
+    plt.xlabel("Generation", fontsize=14)
+    plt.ylabel("Fitness Score", fontsize=14)
+    plt.title("GA Fitness Evolution", fontsize=16, fontweight="bold")
     plt.legend(fontsize=12)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(output_dir / '01_fitness_evolution.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "01_fitness_evolution.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -175,15 +175,15 @@ def _plot_diversity_evolution(result: dict[str, list[float]], output_dir: Path) 
     """Plot population diversity evolution over generations."""
     plt.figure(figsize=(12, 6))
     plt.plot(
-        result['diversity_history'], label='Population Diversity', linewidth=2, color='#2ca02c'
+        result["diversity_history"], label="Population Diversity", linewidth=2, color="#2ca02c"
     )
-    plt.xlabel('Generation', fontsize=14)
-    plt.ylabel('Diversity Score', fontsize=14)
-    plt.title('GA Population Diversity Evolution', fontsize=16, fontweight='bold')
+    plt.xlabel("Generation", fontsize=14)
+    plt.ylabel("Diversity Score", fontsize=14)
+    plt.title("GA Population Diversity Evolution", fontsize=16, fontweight="bold")
     plt.legend(fontsize=12)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(output_dir / '02_diversity_evolution.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "02_diversity_evolution.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -191,19 +191,19 @@ def _plot_fitness_distribution(result: dict[str, np.ndarray], output_dir: Path) 
     """Plot final population fitness distribution."""
     plt.figure(figsize=(12, 6))
     plt.hist(
-        result['final_fitness_scores'],
+        result["final_fitness_scores"],
         bins=30,
         alpha=0.7,
-        color='#9467bd',
-        edgecolor='black',
+        color="#9467bd",
+        edgecolor="black",
         linewidth=0.5,
     )
-    plt.xlabel('Fitness Score', fontsize=14)
-    plt.ylabel('Count', fontsize=14)
-    plt.title('Final Population Fitness Distribution', fontsize=16, fontweight='bold')
+    plt.xlabel("Fitness Score", fontsize=14)
+    plt.ylabel("Count", fontsize=14)
+    plt.title("Final Population Fitness Distribution", fontsize=16, fontweight="bold")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(output_dir / '03_fitness_distribution.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "03_fitness_distribution.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -254,10 +254,10 @@ def plot_top_sensor_designs(
                 linewidth=1.5,
             )
 
-    plt.xlabel('Wavelength (µm)', fontsize=14)
-    plt.ylabel('Absorptivity (Offset Applied)', fontsize=14)
+    plt.xlabel("Wavelength (µm)", fontsize=14)
+    plt.ylabel("Absorptivity (Offset Applied)", fontsize=14)
     plt.title(
-        f'Top 10 Sensor Designs (Fitness ≥ {fitness_threshold})', fontsize=16, fontweight='bold'
+        f"Top 10 Sensor Designs (Fitness ≥ {fitness_threshold})", fontsize=16, fontweight="bold"
     )
     plt.grid(True, alpha=0.3)
 
@@ -266,15 +266,15 @@ def plot_top_sensor_designs(
         plt.text(
             0.02,
             0.98 - i * 0.09,
-            f'Rank {i + 1}: {fitness:.2f}',
+            f"Rank {i + 1}: {fitness:.2f}",
             transform=plt.gca().transAxes,
             fontsize=9,
-            bbox={'boxstyle': 'round,pad=0.3', 'facecolor': 'white', 'alpha': 0.8},
-            verticalalignment='top',
+            bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "alpha": 0.8},
+            verticalalignment="top",
         )
 
     plt.tight_layout()
-    plt.savefig(output_dir / '04_top_sensor_designs.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "04_top_sensor_designs.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     # Also plot the best design
@@ -307,7 +307,7 @@ def plot_best_design(
     basis_functions = gaussian_parameters_to_unit_amplitude_curves(gaussian_params, wavelengths)
 
     # Plot each basis function
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
     for j, basis_func in enumerate(basis_functions.T):
         plt.plot(
             wavelengths,
@@ -315,16 +315,16 @@ def plot_best_design(
             color=colors[j % len(colors)],
             alpha=0.8,
             linewidth=2,
-            label=f'Basis Function {j + 1}',
+            label=f"Basis Function {j + 1}",
         )
 
-    plt.xlabel('Wavelength (µm)', fontsize=14)
-    plt.ylabel('Absorptivity', fontsize=14)
-    plt.title(f'Best Sensor Design (Fitness: {best_fitness:.2f})', fontsize=16, fontweight='bold')
+    plt.xlabel("Wavelength (µm)", fontsize=14)
+    plt.ylabel("Absorptivity", fontsize=14)
+    plt.title(f"Best Sensor Design (Fitness: {best_fitness:.2f})", fontsize=16, fontweight="bold")
     plt.legend(fontsize=12)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(output_dir / '05_best_design.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "05_best_design.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -351,7 +351,7 @@ def plot_ivat_analysis(
     # Use optimal pairing mode (hidden implementation detail)
     distance_matrix = compute_distance_matrix(
         parameter_sets,
-        metric='euclidean',
+        metric="euclidean",
         use_optimal_pairing=True,
         params_per_group=2,  # Assume (mu, sigma) pairs - could be configurable
     )
@@ -361,7 +361,7 @@ def plot_ivat_analysis(
     all_distances = all_distances[all_distances > 0]
 
     if len(all_distances) == 0:
-        logger.warning('No valid distances found for IVAT analysis')
+        logger.warning("No valid distances found for IVAT analysis")
         return
 
     global_vmin = np.percentile(all_distances, 5)
@@ -375,33 +375,33 @@ def plot_ivat_analysis(
     _fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     # Original distance matrix
-    im1 = axes[0].imshow(distance_matrix, cmap='viridis', vmin=global_vmin, vmax=global_vmax)
-    axes[0].set_title('Original Distance Matrix', fontsize=12)
-    axes[0].set_xlabel('Solution Index')
-    axes[0].set_ylabel('Solution Index')
+    im1 = axes[0].imshow(distance_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
+    axes[0].set_title("Original Distance Matrix", fontsize=12)
+    axes[0].set_xlabel("Solution Index")
+    axes[0].set_ylabel("Solution Index")
     plt.colorbar(im1, ax=axes[0], fraction=0.046, pad=0.04)
 
     # VAT matrix
-    im2 = axes[1].imshow(vat_matrix, cmap='viridis', vmin=global_vmin, vmax=global_vmax)
-    axes[1].set_title('VAT Matrix', fontsize=12)
-    axes[1].set_xlabel('Solution Index')
-    axes[1].set_ylabel('Solution Index')
+    im2 = axes[1].imshow(vat_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
+    axes[1].set_title("VAT Matrix", fontsize=12)
+    axes[1].set_xlabel("Solution Index")
+    axes[1].set_ylabel("Solution Index")
     plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
 
     # IVAT matrix
-    im3 = axes[2].imshow(ivat_matrix, cmap='viridis', vmin=global_vmin, vmax=global_vmax)
-    axes[2].set_title('IVAT Matrix (Clustering)', fontsize=12)
-    axes[2].set_xlabel('Solution Index')
-    axes[2].set_ylabel('Solution Index')
+    im3 = axes[2].imshow(ivat_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
+    axes[2].set_title("IVAT Matrix (Clustering)", fontsize=12)
+    axes[2].set_xlabel("Solution Index")
+    axes[2].set_ylabel("Solution Index")
     plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
 
     plt.suptitle(
-        f'IVAT Diversity Analysis (Top {len(high_quality_population)} Solutions)',
+        f"IVAT Diversity Analysis (Top {len(high_quality_population)} Solutions)",
         fontsize=14,
-        fontweight='bold',
+        fontweight="bold",
     )
     plt.tight_layout()
-    plt.savefig(output_dir / '06_ivat_diversity.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "06_ivat_diversity.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -418,15 +418,15 @@ def plot_high_fitness_evolution(result: dict[str, list[int]], output_dir: Path) 
     """
     plt.figure(figsize=(12, 6))
 
-    plt.plot(result['high_fitness_count_history'], linewidth=2, color='#e377c2')
-    plt.xlabel('Generation', fontsize=14)
-    plt.ylabel('Count of Solutions with Fitness ≥ 50', fontsize=14)
+    plt.plot(result["high_fitness_count_history"], linewidth=2, color="#e377c2")
+    plt.xlabel("Generation", fontsize=14)
+    plt.ylabel("Count of Solutions with Fitness ≥ 50", fontsize=14)
     plt.title(
-        'Evolution of High-Fitness Solutions (Multimodal Discovery)', fontsize=16, fontweight='bold'
+        "Evolution of High-Fitness Solutions (Multimodal Discovery)", fontsize=16, fontweight="bold"
     )
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(output_dir / '07_high_fitness_count.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "07_high_fitness_count.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -450,49 +450,49 @@ def plot_fitness_spread_evolution(result: dict[str, list[float]], output_dir: Pa
     ax1_twin = ax1.twinx()
 
     line1 = ax1.plot(
-        result['diversity_history'], linewidth=2, color='#2ca02c', label='Population Diversity'
+        result["diversity_history"], linewidth=2, color="#2ca02c", label="Population Diversity"
     )
     line2 = ax1_twin.plot(
-        result['fitness_std_history'], linewidth=2, color='#d62728', label='Fitness Std Dev'
+        result["fitness_std_history"], linewidth=2, color="#d62728", label="Fitness Std Dev"
     )
 
-    ax1.set_xlabel('Generation', fontsize=12)
-    ax1.set_ylabel('Population Diversity', fontsize=12, color='#2ca02c')
-    ax1_twin.set_ylabel('Fitness Std Dev', fontsize=12, color='#d62728')
-    ax1.tick_params(axis='y', labelcolor='#2ca02c')
-    ax1_twin.tick_params(axis='y', labelcolor='#d62728')
-    ax1.set_title('Population Diversity vs Fitness Spread', fontsize=14, fontweight='bold')
+    ax1.set_xlabel("Generation", fontsize=12)
+    ax1.set_ylabel("Population Diversity", fontsize=12, color="#2ca02c")
+    ax1_twin.set_ylabel("Fitness Std Dev", fontsize=12, color="#d62728")
+    ax1.tick_params(axis="y", labelcolor="#2ca02c")
+    ax1_twin.tick_params(axis="y", labelcolor="#d62728")
+    ax1.set_title("Population Diversity vs Fitness Spread", fontsize=14, fontweight="bold")
     ax1.grid(True, alpha=0.3)
 
     # Combine legends
     lines = line1 + line2
     labels = [line.get_label() for line in lines]
-    ax1.legend(lines, labels, loc='upper right', fontsize=10)
+    ax1.legend(lines, labels, loc="upper right", fontsize=10)
 
     # Bottom panel: Best, mean, and std bands
     # Ensure all arrays have the same length (use shortest)
     min_len = min(
-        len(result['best_fitness_history']),
-        len(result['mean_fitness_history']),
-        len(result['fitness_std_history']),
+        len(result["best_fitness_history"]),
+        len(result["mean_fitness_history"]),
+        len(result["fitness_std_history"]),
     )
     generations = np.arange(min_len)
-    best = np.array(result['best_fitness_history'][:min_len])
-    mean = np.array(result['mean_fitness_history'][:min_len])
-    std = np.array(result['fitness_std_history'][:min_len])
+    best = np.array(result["best_fitness_history"][:min_len])
+    mean = np.array(result["mean_fitness_history"][:min_len])
+    std = np.array(result["fitness_std_history"][:min_len])
 
-    ax2.plot(generations, best, linewidth=2, color='#1f77b4', label='Best Fitness')
-    ax2.plot(generations, mean, linewidth=2, color='#ff7f0e', label='Mean Fitness')
+    ax2.plot(generations, best, linewidth=2, color="#1f77b4", label="Best Fitness")
+    ax2.plot(generations, mean, linewidth=2, color="#ff7f0e", label="Mean Fitness")
     ax2.fill_between(
-        generations, mean - std, mean + std, alpha=0.3, color='#ff7f0e', label='±1 Std Dev'
+        generations, mean - std, mean + std, alpha=0.3, color="#ff7f0e", label="±1 Std Dev"
     )
 
-    ax2.set_xlabel('Generation', fontsize=12)
-    ax2.set_ylabel('Fitness Score', fontsize=12)
-    ax2.set_title('Fitness Evolution with Spread', fontsize=14, fontweight='bold')
+    ax2.set_xlabel("Generation", fontsize=12)
+    ax2.set_ylabel("Fitness Score", fontsize=12)
+    ax2.set_title("Fitness Evolution with Spread", fontsize=14, fontweight="bold")
     ax2.legend(fontsize=10)
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(output_dir / '08_fitness_spread.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "08_fitness_spread.png", dpi=300, bbox_inches="tight")
     plt.close()

@@ -18,7 +18,7 @@ from lwi_microbolometer_design import (
     gaussian_parameters_to_unit_amplitude_curves,
     spectral_angle_mapper,
 )
-from lwi_microbolometer_design.data import load_substance_atmosphere_data
+from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 from lwi_microbolometer_design.ga import (
     AdvancedGA,
     MinDissimilarityFitnessEvaluator,
@@ -33,7 +33,7 @@ mp.set_start_method("spawn", force=True)
 
 def run_single_ga(
     run_id: int,
-    data: dict[str, np.ndarray | float],
+    scene: SceneConfig,
     gene_space: list[dict[str, float]],
     params_per_basis_function: int,
     num_generations: int = 1000,
@@ -46,8 +46,8 @@ def run_single_ga(
     ----------
     run_id : int
         Unique identifier for this run
-    data : dict
-        Simulation data dictionary
+    scene : SceneConfig
+        Loaded physical scene for fitness evaluation
     gene_space : list
         Gene space bounds
     params_per_basis_function : int
@@ -67,40 +67,13 @@ def run_single_ga(
     # Use different random seed for each run
     np.random.seed(random_seed + run_id)
 
-    # Prepare fitness function
-    wavelengths_val = data["wavelengths"]
-    emissivity_val = data["emissivity_curves"]
-    temp_k_val = data["temperature_K"]
-    atm_dist_val = data["atmospheric_distance_ratio"]
-    air_ref_idx_val = data["air_refractive_index"]
-    air_trans_val = data["air_transmittance"]
-
-    wavelengths_array = (
-        wavelengths_val
-        if isinstance(wavelengths_val, np.ndarray)
-        else np.array([float(wavelengths_val)])
-    )
-    emissivity_array = (
-        emissivity_val
-        if isinstance(emissivity_val, np.ndarray)
-        else np.array([float(emissivity_val)])
-    )
-    temperature_float = float(temp_k_val) if not isinstance(temp_k_val, float) else temp_k_val
-    atm_dist_float = float(atm_dist_val) if not isinstance(atm_dist_val, float) else atm_dist_val
-    air_ref_idx_float = (
-        float(air_ref_idx_val) if not isinstance(air_ref_idx_val, float) else air_ref_idx_val
-    )
-    air_trans_array = (
-        air_trans_val if isinstance(air_trans_val, np.ndarray) else np.array([float(air_trans_val)])
-    )
-
     fitness_func = MinDissimilarityFitnessEvaluator(
-        wavelengths=wavelengths_array,
-        emissivity_curves=emissivity_array,
-        temperature_k=temperature_float,
-        atmospheric_distance_ratio=atm_dist_float,
-        air_refractive_index=air_ref_idx_float,
-        air_transmittance=air_trans_array,
+        wavelengths=scene.wavelengths,
+        emissivity_curves=scene.emissivity_curves,
+        temperature_k=scene.temperature_k,
+        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+        air_refractive_index=scene.air_refractive_index,
+        air_transmittance=scene.air_transmittance,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=params_per_basis_function,
         distance_metric=spectral_angle_mapper,
@@ -298,9 +271,9 @@ def main() -> None:
     )
 
     if isinstance(loaded_data, list):
-        data = loaded_data[0]
+        scene: SceneConfig = loaded_data[0]
     else:
-        data = loaded_data
+        scene = loaded_data
 
     # Sensor configuration
     num_basis_functions = 4
@@ -339,7 +312,7 @@ def main() -> None:
             executor.submit(
                 run_single_ga,
                 run_id=run_id,
-                data=data,
+                scene=scene,
                 gene_space=gene_space,
                 params_per_basis_function=num_params_per_basis_function,
                 num_generations=num_generations,
@@ -376,12 +349,7 @@ def main() -> None:
     output_dir = Path("outputs/ga/ensemble_demo")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Prepare wavelengths for plotting
-    wavelengths_array = (
-        data["wavelengths"]
-        if isinstance(data["wavelengths"], np.ndarray)
-        else np.array([float(data["wavelengths"])])
-    )
+    wavelengths_array = np.asarray(scene.wavelengths)
 
     # Generate visualization
     print("\n[4/4] Creating ensemble visualization...")

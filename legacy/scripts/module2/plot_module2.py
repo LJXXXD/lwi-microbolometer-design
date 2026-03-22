@@ -19,7 +19,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.manifold import TSNE
 
 from lwi_microbolometer_design.analysis.distance_metrics import spectral_angle_mapper
-from lwi_microbolometer_design.data import load_substance_atmosphere_data
+from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 from lwi_microbolometer_design.ga import MinDissimilarityFitnessEvaluator
 from lwi_microbolometer_design.simulation.gaussian_parameter_to_curves import (
     gaussian_parameters_to_unit_amplitude_curves,
@@ -343,30 +343,32 @@ def main() -> None:
     air_refractive_index = 1.0
 
     try:
-        data = load_substance_atmosphere_data(
+        loaded = load_substance_atmosphere_data(
             spectral_data_file=spectral_data_file,
             air_transmittance_file=air_transmittance_file,
             atmospheric_distance_ratio=atmospheric_distance_ratio,
             temperature_kelvin=temperature_kelvin,
             air_refractive_index=air_refractive_index,
         )
+        if isinstance(loaded, list):
+            scene: SceneConfig = loaded[0]
+        else:
+            scene = loaded
         logger.info("✓ Data loaded successfully.")
 
         # Create fitness evaluator
         fitness_evaluator = MinDissimilarityFitnessEvaluator(
-            wavelengths=data["wavelengths"],
-            emissivity_curves=data["emissivity_curves"],
-            temperature_K=data["temperature_K"],
-            atmospheric_distance_ratio=data["atmospheric_distance_ratio"],
-            air_refractive_index=data["air_refractive_index"],
-            air_transmittance=data["air_transmittance"],
+            wavelengths=scene.wavelengths,
+            emissivity_curves=scene.emissivity_curves,
+            temperature_k=scene.temperature_k,
+            atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
+            air_refractive_index=scene.air_refractive_index,
+            air_transmittance=scene.air_transmittance,
             parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
             params_per_basis_function=2,
             distance_metric=spectral_angle_mapper,
         )
-        wavelengths = data["wavelengths"]
-        if wavelengths.ndim > 1:
-            wavelengths = wavelengths.flatten()
+        wavelengths = np.asarray(scene.wavelengths)
 
     except Exception as e:
         logger.error(f"Failed to load data: {e}")

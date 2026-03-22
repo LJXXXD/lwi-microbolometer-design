@@ -216,9 +216,6 @@ class AdvancedGA(pygad.GA):
                         self.niching_config.alpha,
                     )
                     niche_count += sharing_coeff
-            # DEBUG: Verify niching penalty is being applied
-            penalty = 1.0 / niche_count
-            print(f"DEBUG: Niching penalty applied: {penalty:.6f} (niche_count={niche_count:.6f})")
 
             # Divide fitness by niche count (crowded solutions get penalized)
             shared_fitness[i] = self.original_fitness_scores[i] / niche_count
