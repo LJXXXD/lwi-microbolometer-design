@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import multiprocessing as mp
-import traceback
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -22,14 +21,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..data.substance_atmosphere_data import load_substance_atmosphere_data
-from ..simulation.gaussian_parameter_to_curves import gaussian_parameters_to_unit_amplitude_curves
 from .advanced_ga import AdvancedGA
 from .diversity import calculate_population_diversity
-from .experiment import ExperimentConfig
 from .ga_configuration import create_ga_config
 from .mutations import diversity_preserving_mutation
-from .visualization import ParametersToCurves, plot_top_sensor_designs
 
 logger = logging.getLogger(__name__)
 
@@ -595,175 +590,3 @@ def create_focused_search_space() -> HyperparameterSearchSpace:
         niching_enabled=[True],
         sigma_share=[0.8, 1.0, 1.2],
     )
-
-
-def visualize_top_configurations(
-    results_df: pd.DataFrame,
-    experiment: ExperimentConfig,
-    fitness_func: Callable,
-    gene_space: list[dict[str, float]],
-    params_per_basis_function: int,
-    output_dir: Path,
-    top_k: int = 5,
-    num_generations_override: int | None = None,
-    *,
-    parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
-) -> None:
-    """Generate visualizations for top K configurations.
-
-    For each top configuration, runs a GA and generates plot_top_sensor_designs visualization.
-
-    Parameters
-    ----------
-    results_df : pd.DataFrame
-        Results dataframe from tuning (sorted by best_fitness descending)
-    experiment : ExperimentConfig
-        Experiment configuration (for data loading)
-    fitness_func : Callable
-        Fitness function for GA
-    gene_space : list[dict[str, float]]
-        Gene space bounds
-    params_per_basis_function : int
-        Number of parameters per basis function
-    output_dir : Path
-        Output directory for visualizations
-    top_k : int
-        Number of top configurations to visualize (default: 5)
-    num_generations_override : int | None
-        Override number of generations for visualization runs (default: None, uses config value)
-    parameters_to_curves : ParametersToCurves, optional
-        Basis curve generator for design plots (default: Gaussian unit-amplitude curves).
-    """
-    logger.info(f"\n=== Generating Visualizations for Top {top_k} Configurations ===")
-
-    # Get top K configurations
-    top_configs = results_df.head(top_k)
-
-    # Load data to get wavelengths for visualization
-    loaded = load_substance_atmosphere_data(
-        spectral_data_file=Path(experiment.data["spectral_data_file"]),
-        air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
-        atmospheric_distance_ratio=experiment.data.get("atmospheric_distance_ratio", 0.11),
-        temperature_kelvin=experiment.data.get("temperature_kelvin", 293.15),
-        air_refractive_index=experiment.data.get("air_refractive_index", 1.0),
-    )
-
-    # Handle multi-condition data
-    if isinstance(loaded, list):
-        if len(loaded) > 1:
-            logger.warning("Multi-condition data detected, using first condition only")
-        scene = loaded[0]
-    else:
-        scene = loaded
-
-    wavelengths = scene.wavelengths
-    fitness_threshold = experiment.execution.get("fitness_threshold", 45.0)
-
-    for idx, (_, config_row) in enumerate(top_configs.iterrows(), 1):
-        logger.info(f"\nVisualizing configuration {idx}/{top_k} (rank {idx})...")
-
-        try:
-            # Extract configuration from row (exclude result columns)
-            result_columns = [
-                "best_fitness",
-                "mean_fitness",
-                "diversity_score",
-                "convergence_generation",
-                "high_quality_solutions",
-            ]
-            config_dict = {k: v for k, v in config_row.items() if k not in result_columns}
-
-            # Override generations if specified (for faster visualization runs)
-            if num_generations_override:
-                config_dict["num_generations"] = num_generations_override
-                logger.info(f"  Using {num_generations_override} generations for visualization")
-
-            # Run single GA run with this configuration
-            random_seed = experiment.execution.get("random_seed_base", 42)
-
-            # Build GA config
-            ga_config = create_ga_config(
-                num_generations=config_dict.get("num_generations", 2000),
-                num_parents_mating=config_dict.get("num_parents_mating", 50),
-                sol_per_pop=config_dict.get("sol_per_pop", 200),
-                parent_selection_type=config_dict.get("parent_selection_type", "tournament"),
-                K_tournament=config_dict.get("K_tournament", 3),
-                keep_elitism=config_dict.get("keep_elitism", 5),
-                crossover_type=config_dict.get("crossover_type", "uniform"),
-                crossover_probability=config_dict.get("crossover_probability", 0.8),
-                mutation_type=diversity_preserving_mutation,
-                mutation_probability=config_dict.get("mutation_probability", 0.1),
-                save_best_solutions=True,
-                stop_criteria=config_dict.get("stop_criteria", "saturate_200"),
-                niching_enabled=config_dict.get("niching_enabled", True),
-                niching_use_optimal_pairing=config_dict.get("niching_use_optimal_pairing", True),
-                niching_params_per_group=config_dict.get(
-                    "niching_params_per_group", params_per_basis_function
-                ),
-                niching_sigma_share=config_dict.get("niching_sigma_share", 0.5),
-                niching_alpha=config_dict.get("niching_alpha", 0.5),
-                niching_optimal_pairing_metric=config_dict.get(
-                    "niching_optimal_pairing_metric", "euclidean"
-                ),
-                random_seed=random_seed,
-            )
-
-            # Track metrics using a tracker class (avoids B023 closure warning)
-            diversity_tracker = GenerationTracker()
-
-            # Add runtime-specific parameters
-            ga_params = ga_config.copy()
-            ga_params["num_genes"] = len(gene_space)
-            ga_params["gene_space"] = gene_space
-            ga_params["fitness_func"] = fitness_func
-            ga_params["on_generation"] = diversity_tracker.on_generation
-
-            # Create and run GA
-            ga = AdvancedGA(**ga_params)
-            ga.run()
-
-            # Extract results
-            final_fitness_scores = ga.last_generation_fitness
-            final_population = ga.population
-
-            # Filter high-quality solutions
-            high_quality_mask = final_fitness_scores >= fitness_threshold
-            high_quality_population = final_population[high_quality_mask]
-            high_quality_fitness = final_fitness_scores[high_quality_mask]
-
-            if len(high_quality_population) == 0:
-                logger.warning(
-                    f"  No high-quality solutions found (threshold: {fitness_threshold}). "
-                    f"Best fitness: {np.max(final_fitness_scores):.4f}"
-                )
-                continue
-
-            logger.info(
-                f"  Found {len(high_quality_population)} high-quality solutions "
-                f"(best: {np.max(high_quality_fitness):.4f})"
-            )
-
-            # Create output directory for this configuration
-            config_output_dir = output_dir / f"top_{idx}_config"
-            config_output_dir.mkdir(parents=True, exist_ok=True)
-
-            # Generate visualization (scene wavelengths are canonical 1D)
-            wavelengths_1d = np.asarray(wavelengths)
-
-            plot_top_sensor_designs(
-                high_quality_population=high_quality_population,
-                high_quality_fitness=high_quality_fitness,
-                wavelengths=wavelengths_1d,
-                fitness_threshold=fitness_threshold,
-                output_dir=config_output_dir,
-                parameters_to_curves=parameters_to_curves,
-            )
-
-            logger.info(f"  ✓ Visualization saved to {config_output_dir}")
-
-        except Exception as e:
-            logger.error(f"  ✗ Failed to visualize configuration {idx}: {e}")
-            logger.debug(traceback.format_exc())
-            continue
-
-    logger.info(f"\n✓ Completed visualizations for top {top_k} configurations")

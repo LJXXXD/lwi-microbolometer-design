@@ -9,12 +9,14 @@ and solution comparisons.
 from __future__ import annotations
 
 import logging
+import traceback
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeAlias
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from lwi_microbolometer_design.analysis import (
     compute_distance_matrix,
@@ -22,12 +24,40 @@ from lwi_microbolometer_design.analysis import (
     vat_reorder,
 )
 from lwi_microbolometer_design.data.scene_config import SceneConfig
+from lwi_microbolometer_design.data.substance_atmosphere_data import load_substance_atmosphere_data
 from lwi_microbolometer_design.simulation import gaussian_parameters_to_unit_amplitude_curves
+
+from .advanced_ga import AdvancedGA
+from .experiment import ExperimentConfig
+from .ga_configuration import create_ga_config
+from .mutations import diversity_preserving_mutation
 
 logger = logging.getLogger(__name__)
 
 # Maps decoded per-basis parameters (e.g. list of (mu, sigma)) to a (wavelengths, n_basis) curve matrix.
-ParametersToCurves: TypeAlias = Callable[[list[tuple[float, float]], np.ndarray], np.ndarray]
+ParametersToCurves: TypeAlias = Callable[[list[tuple[float, ...]], np.ndarray], np.ndarray]
+
+
+def _chromosome_to_basis_param_tuples(
+    chromosome: np.ndarray | list[float], params_per_basis_function: int
+) -> list[tuple[float, ...]]:
+    """Decode a flat chromosome into per-basis parameter tuples for curve plotting."""
+    genes = np.asarray(chromosome, dtype=np.float64)
+    n = int(genes.size)
+    if params_per_basis_function < 1:
+        msg = f"params_per_basis_function must be >= 1, got {params_per_basis_function}"
+        raise ValueError(msg)
+    if n % params_per_basis_function != 0:
+        msg = (
+            f"Chromosome length ({n}) must be divisible by "
+            f"params_per_basis_function ({params_per_basis_function})"
+        )
+        raise ValueError(msg)
+    return [
+        tuple(float(genes[i + k]) for k in range(params_per_basis_function))
+        for i in range(0, n, params_per_basis_function)
+    ]
+
 
 # Constants for visualization behavior
 MIN_SOLUTIONS_FOR_IVAT = 10  # Minimum solutions needed for IVAT visualization
@@ -39,6 +69,7 @@ def visualize_ga_results(
     output_dir: Path,
     high_fitness_threshold: float = 50.0,
     *,
+    params_per_basis_function: int = 2,
     parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """
@@ -64,6 +95,8 @@ def visualize_ga_results(
         Directory to save visualization plots
     high_fitness_threshold : float, optional
         Threshold for determining which solutions to visualize (default: 50.0)
+    params_per_basis_function : int, optional
+        Genes per basis function when decoding chromosomes for design plots (default: 2).
     parameters_to_curves : callable, optional
         Maps ``(parameter_tuples, wavelengths)`` to an array of shape
         ``(n_wavelengths, n_basis)``. Default: Gaussian unit-amplitude curves.
@@ -130,12 +163,18 @@ def visualize_ga_results(
             wavelengths,
             fitness_threshold,
             output_dir,
+            params_per_basis_function=params_per_basis_function,
             parameters_to_curves=parameters_to_curves,
         )
 
     # 5. IVAT Diversity Analysis
     if len(high_quality_population) >= MIN_SOLUTIONS_FOR_IVAT:
-        plot_ivat_analysis(high_quality_population, high_quality_fitness, output_dir)
+        plot_ivat_analysis(
+            high_quality_population,
+            high_quality_fitness,
+            output_dir,
+            params_per_basis_function=params_per_basis_function,
+        )
 
     # 6. High-Fitness Count Evolution (Multimodal Analysis)
     if (
@@ -224,6 +263,7 @@ def plot_top_sensor_designs(
     fitness_threshold: float,
     output_dir: Path,
     *,
+    params_per_basis_function: int = 2,
     parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """
@@ -241,6 +281,8 @@ def plot_top_sensor_designs(
         Fitness threshold used to filter solutions
     output_dir : Path
         Directory to save the plot
+    params_per_basis_function : int, optional
+        Number of consecutive genes per basis function (default: 2, e.g. Gaussian μ, σ).
     parameters_to_curves : callable, optional
         Same contract as :func:`visualize_ga_results` (default: Gaussian curves).
     """
@@ -252,9 +294,8 @@ def plot_top_sensor_designs(
     colors = plt.cm.viridis(np.linspace(0, 1, len(top_10)))
 
     for i, (chromosome, _fitness) in enumerate(zip(top_10, top_10_fitness, strict=False)):
-        # Convert chromosome to list of tuples for gaussian curves
-        gaussian_params = [(chromosome[j], chromosome[j + 1]) for j in range(0, len(chromosome), 2)]
-        basis_functions = parameters_to_curves(gaussian_params, wavelengths)
+        basis_params = _chromosome_to_basis_param_tuples(chromosome, params_per_basis_function)
+        basis_functions = parameters_to_curves(basis_params, wavelengths)
         vertical_offset = i * 0.1
 
         # Plot each basis function
@@ -297,6 +338,7 @@ def plot_top_sensor_designs(
         top_10_fitness[0],
         wavelengths,
         output_dir,
+        params_per_basis_function=params_per_basis_function,
         parameters_to_curves=parameters_to_curves,
     )
 
@@ -307,6 +349,7 @@ def plot_best_design(
     wavelengths: np.ndarray,
     output_dir: Path,
     *,
+    params_per_basis_function: int = 2,
     parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
 ) -> None:
     """
@@ -322,16 +365,15 @@ def plot_best_design(
         Wavelength array for plotting basis functions
     output_dir : Path
         Directory to save the plot
+    params_per_basis_function : int, optional
+        Genes per basis function (default: 2).
     parameters_to_curves : callable, optional
         Same contract as :func:`plot_top_sensor_designs` (default: Gaussian curves).
     """
     plt.figure(figsize=(12, 6))
 
-    # Convert chromosome array to list of tuples
-    gaussian_params = [
-        (best_chromosome[j], best_chromosome[j + 1]) for j in range(0, len(best_chromosome), 2)
-    ]
-    basis_functions = parameters_to_curves(gaussian_params, wavelengths)
+    basis_params = _chromosome_to_basis_param_tuples(best_chromosome, params_per_basis_function)
+    basis_functions = parameters_to_curves(basis_params, wavelengths)
 
     # Plot each basis function
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
@@ -356,7 +398,11 @@ def plot_best_design(
 
 
 def plot_ivat_analysis(
-    high_quality_population: np.ndarray, _high_quality_fitness: np.ndarray, output_dir: Path
+    high_quality_population: np.ndarray,
+    _high_quality_fitness: np.ndarray,
+    output_dir: Path,
+    *,
+    params_per_basis_function: int = 2,
 ) -> None:
     """
     Create IVAT visualizations with fixed color range.
@@ -372,6 +418,8 @@ def plot_ivat_analysis(
         Array of fitness scores (unused, kept for API consistency)
     output_dir : Path
         Directory to save the plot
+    params_per_basis_function : int, optional
+        Genes per grouped basis function for optimal-pairing distance (default: 2).
     """
     # Use arrays directly (no need for Chromosome class)
     parameter_sets = [np.array(genes) for genes in high_quality_population]
@@ -380,7 +428,7 @@ def plot_ivat_analysis(
         parameter_sets,
         metric="euclidean",
         use_optimal_pairing=True,
-        params_per_group=2,  # Assume (mu, sigma) pairs - could be configurable
+        params_per_group=params_per_basis_function,
     )
 
     # Determine color range (exclude diagonal zeros)
@@ -523,3 +571,168 @@ def plot_fitness_spread_evolution(result: dict[str, list[float]], output_dir: Pa
     plt.tight_layout()
     plt.savefig(output_dir / "08_fitness_spread.png", dpi=300, bbox_inches="tight")
     plt.close()
+
+
+def visualize_top_configurations(
+    results_df: pd.DataFrame,
+    experiment: ExperimentConfig,
+    fitness_func: Callable[..., float],
+    gene_space: list[dict[str, float]],
+    params_per_basis_function: int,
+    output_dir: Path,
+    top_k: int = 5,
+    num_generations_override: int | None = None,
+    *,
+    parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
+) -> None:
+    """Generate visualizations for top K tuning configurations.
+
+    For each top configuration, runs a GA and generates
+    :func:`plot_top_sensor_designs` output.
+
+    Parameters
+    ----------
+    results_df : pd.DataFrame
+        Results dataframe from tuning (sorted by best_fitness descending)
+    experiment : ExperimentConfig
+        Experiment configuration (for data loading)
+    fitness_func : Callable[..., float]
+        Fitness function for GA
+    gene_space : list[dict[str, float]]
+        Gene space bounds
+    params_per_basis_function : int
+        Number of parameters per basis function
+    output_dir : Path
+        Output directory for visualizations
+    top_k : int
+        Number of top configurations to visualize (default: 5)
+    num_generations_override : int | None
+        Override number of generations for visualization runs
+    parameters_to_curves : ParametersToCurves, optional
+        Basis curve generator for design plots (default: Gaussian unit-amplitude curves).
+    """
+    # Local import: ``tuning`` imports this module at package load time.
+    from .tuning import GenerationTracker
+
+    logger.info("\n=== Generating Visualizations for Top %s Configurations ===", top_k)
+
+    top_configs = results_df.head(top_k)
+
+    loaded = load_substance_atmosphere_data(
+        spectral_data_file=Path(experiment.data["spectral_data_file"]),
+        air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
+        atmospheric_distance_ratio=experiment.data.get("atmospheric_distance_ratio", 0.11),
+        temperature_kelvin=experiment.data.get("temperature_kelvin", 293.15),
+        air_refractive_index=experiment.data.get("air_refractive_index", 1.0),
+    )
+
+    if isinstance(loaded, list):
+        if len(loaded) > 1:
+            logger.warning("Multi-condition data detected, using first condition only")
+        scene = loaded[0]
+    else:
+        scene = loaded
+
+    wavelengths = scene.wavelengths
+    fitness_threshold = experiment.execution.get("fitness_threshold", 45.0)
+
+    for idx, (_, config_row) in enumerate(top_configs.iterrows(), 1):
+        logger.info("\nVisualizing configuration %s/%s (rank %s)...", idx, top_k, idx)
+
+        try:
+            result_columns = [
+                "best_fitness",
+                "mean_fitness",
+                "diversity_score",
+                "convergence_generation",
+                "high_quality_solutions",
+            ]
+            config_dict = {k: v for k, v in config_row.items() if k not in result_columns}
+
+            if num_generations_override:
+                config_dict["num_generations"] = num_generations_override
+                logger.info("  Using %s generations for visualization", num_generations_override)
+
+            random_seed = experiment.execution.get("random_seed_base", 42)
+
+            ga_config = create_ga_config(
+                num_generations=config_dict.get("num_generations", 2000),
+                num_parents_mating=config_dict.get("num_parents_mating", 50),
+                sol_per_pop=config_dict.get("sol_per_pop", 200),
+                parent_selection_type=config_dict.get("parent_selection_type", "tournament"),
+                K_tournament=config_dict.get("K_tournament", 3),
+                keep_elitism=config_dict.get("keep_elitism", 5),
+                crossover_type=config_dict.get("crossover_type", "uniform"),
+                crossover_probability=config_dict.get("crossover_probability", 0.8),
+                mutation_type=diversity_preserving_mutation,
+                mutation_probability=config_dict.get("mutation_probability", 0.1),
+                save_best_solutions=True,
+                stop_criteria=config_dict.get("stop_criteria", "saturate_200"),
+                niching_enabled=config_dict.get("niching_enabled", True),
+                niching_use_optimal_pairing=config_dict.get("niching_use_optimal_pairing", True),
+                niching_params_per_group=config_dict.get(
+                    "niching_params_per_group", params_per_basis_function
+                ),
+                niching_sigma_share=config_dict.get("niching_sigma_share", 0.5),
+                niching_alpha=config_dict.get("niching_alpha", 0.5),
+                niching_optimal_pairing_metric=config_dict.get(
+                    "niching_optimal_pairing_metric", "euclidean"
+                ),
+                random_seed=random_seed,
+            )
+
+            diversity_tracker = GenerationTracker()
+
+            ga_params = ga_config.copy()
+            ga_params["num_genes"] = len(gene_space)
+            ga_params["gene_space"] = gene_space
+            ga_params["fitness_func"] = fitness_func
+            ga_params["on_generation"] = diversity_tracker.on_generation
+
+            ga = AdvancedGA(**ga_params)
+            ga.run()
+
+            final_fitness_scores = ga.last_generation_fitness
+            final_population = ga.population
+
+            high_quality_mask = final_fitness_scores >= fitness_threshold
+            high_quality_population = final_population[high_quality_mask]
+            high_quality_fitness = final_fitness_scores[high_quality_mask]
+
+            if len(high_quality_population) == 0:
+                logger.warning(
+                    "  No high-quality solutions found (threshold: %s). Best fitness: %.4f",
+                    fitness_threshold,
+                    float(np.max(final_fitness_scores)),
+                )
+                continue
+
+            logger.info(
+                "  Found %s high-quality solutions (best: %.4f)",
+                len(high_quality_population),
+                float(np.max(high_quality_fitness)),
+            )
+
+            config_output_dir = output_dir / f"top_{idx}_config"
+            config_output_dir.mkdir(parents=True, exist_ok=True)
+
+            wavelengths_1d = np.asarray(wavelengths)
+
+            plot_top_sensor_designs(
+                high_quality_population=high_quality_population,
+                high_quality_fitness=high_quality_fitness,
+                wavelengths=wavelengths_1d,
+                fitness_threshold=fitness_threshold,
+                output_dir=config_output_dir,
+                params_per_basis_function=params_per_basis_function,
+                parameters_to_curves=parameters_to_curves,
+            )
+
+            logger.info("  ✓ Visualization saved to %s", config_output_dir)
+
+        except Exception as e:
+            logger.error("  ✗ Failed to visualize configuration %s: %s", idx, e)
+            logger.debug(traceback.format_exc())
+            continue
+
+    logger.info("\n✓ Completed visualizations for top %s configurations", top_k)

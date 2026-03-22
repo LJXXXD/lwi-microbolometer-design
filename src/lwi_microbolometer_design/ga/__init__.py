@@ -18,8 +18,8 @@ from .advanced_ga import (
     niche_sharing_coefficient,
 )
 
-# Analysis
-from .analysis import AnalysisConfig, analyze_population_diversity
+# Population analysis (post-run GA analytics; not the spectral ``analysis`` package)
+from .population_analysis import AnalysisConfig, analyze_population_diversity
 
 # Diversity
 from .diversity import calculate_population_diversity, compute_population_distance_matrix

@@ -2,6 +2,9 @@
 
 import numpy as np
 
+# Below this norm, treat a vector as zero-magnitude so SAM stays finite during optimization.
+_SAM_NORM_EPS = 1e-15
+
 
 def spectral_angle_mapper(vector1: np.ndarray | list, vector2: np.ndarray | list) -> float:
     """
@@ -22,12 +25,10 @@ def spectral_angle_mapper(vector1: np.ndarray | list, vector2: np.ndarray | list
     Returns
     -------
     float
-        The spectral angle in degrees between the two vectors (0-90 degrees)
-
-    Raises
-    ------
-    ValueError
-        If either input vector has zero magnitude
+        The spectral angle in degrees between the two vectors (typically 0–90° for
+        nonzero norms). If either vector has norm below ``1e-15``, returns ``0.0``
+        so fitness evaluation stays finite (degenerate fingerprints read as
+        maximally similar).
 
     Notes
     -----
@@ -44,11 +45,11 @@ def spectral_angle_mapper(vector1: np.ndarray | list, vector2: np.ndarray | list
     vec2_array = np.array(vector2) if not isinstance(vector2, np.ndarray) else vector2
 
     # Normalize the vectors
-    norm1 = np.linalg.norm(vec1_array)
-    norm2 = np.linalg.norm(vec2_array)
+    norm1 = float(np.linalg.norm(vec1_array))
+    norm2 = float(np.linalg.norm(vec2_array))
 
-    if norm1 == 0 or norm2 == 0:
-        raise ValueError("Input vectors must not have zero magnitude.")
+    if norm1 < _SAM_NORM_EPS or norm2 < _SAM_NORM_EPS:
+        return 0.0
 
     vec1_normalized = vec1_array / norm1
     vec2_normalized = vec2_array / norm2

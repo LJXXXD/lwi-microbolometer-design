@@ -41,13 +41,14 @@ class TestSpectralAngleMapper:
 
         assert abs(angle - 180.0) < 1e-10
 
-    def test_spectral_angle_mapper_zero_vector_error(self):
-        """Test that zero vectors raise an error."""
+    def test_spectral_angle_mapper_zero_norm_returns_zero_degrees(self):
+        """Degenerate norms return 0° so the optimizer path stays finite."""
         vector1 = np.array([1.0, 2.0, 3.0])
         vector2 = np.array([0.0, 0.0, 0.0])
 
-        with pytest.raises(ValueError, match="zero magnitude"):
-            spectral_angle_mapper(vector1, vector2)
+        assert spectral_angle_mapper(vector1, vector2) == 0.0
+        assert spectral_angle_mapper(vector2, vector1) == 0.0
+        assert spectral_angle_mapper(vector2, vector2) == 0.0
 
 
 class TestComputeDistanceMatrix:

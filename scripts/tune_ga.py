@@ -16,11 +16,8 @@ from lwi_microbolometer_design.ga.experiment import (
     create_search_space_from_experiment,
     load_experiment_config,
 )
-from lwi_microbolometer_design.ga.tuning import (
-    HyperparameterSearchSpace,
-    HyperparameterTuner,
-    visualize_top_configurations,
-)
+from lwi_microbolometer_design.ga.tuning import HyperparameterSearchSpace, HyperparameterTuner
+from lwi_microbolometer_design.ga.visualization import visualize_top_configurations
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
