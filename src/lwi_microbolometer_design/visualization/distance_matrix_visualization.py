@@ -14,8 +14,8 @@ import seaborn as sns
 def visualize_distance_matrix(
     distance_matrix: np.ndarray,
     labels: list[str] | None = None,
-    title: str = 'Distance Matrix',
-    cmap: str = 'viridis',
+    title: str = "Distance Matrix",
+    cmap: str = "viridis",
     fontsize: int = 10,
     colorbar_min: float | None = None,
     colorbar_max: float | None = None,
@@ -70,20 +70,20 @@ def visualize_distance_matrix(
         sns.heatmap(
             distance_matrix,
             annot=True,
-            fmt='.2f',
+            fmt=".2f",
             cmap=cmap,
             square=True,
             xticklabels=labels,
             yticklabels=labels,
-            cbar_kws={'label': 'Distance'},
+            cbar_kws={"label": "Distance"},
             vmin=vmin,
             vmax=vmax,
         )
     else:
         # Use matplotlib for more control
-        img = plt.imshow(distance_matrix, cmap=cmap, aspect='auto', vmin=vmin, vmax=vmax)
+        img = plt.imshow(distance_matrix, cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
         cbar = plt.colorbar(img)
-        cbar.set_label('Distance', fontsize=fontsize)
+        cbar.set_label("Distance", fontsize=fontsize)
 
         # Add labels if provided
         if labels is not None and len(labels) > 0:
@@ -94,12 +94,12 @@ def visualize_distance_matrix(
         else:
             n = distance_matrix.shape[0]
             ax.set_xticks(np.arange(n))
-            ax.set_xticklabels([f'Item {i + 1}' for i in range(n)], fontsize=fontsize)
+            ax.set_xticklabels([f"Item {i + 1}" for i in range(n)], fontsize=fontsize)
             ax.set_yticks(np.arange(n))
-            ax.set_yticklabels([f'Item {i + 1}' for i in range(n)], fontsize=fontsize)
+            ax.set_yticklabels([f"Item {i + 1}" for i in range(n)], fontsize=fontsize)
 
         # Move x-axis labels to the top for better readability
-        ax.xaxis.set_label_position('top')
+        ax.xaxis.set_label_position("top")
         ax.xaxis.tick_top()
 
         # Add cell values if requested
@@ -109,21 +109,21 @@ def visualize_distance_matrix(
                     plt.text(
                         j,
                         i,
-                        f'{distance_matrix[i, j]:.2f}',
-                        ha='center',
-                        va='center',
+                        f"{distance_matrix[i, j]:.2f}",
+                        ha="center",
+                        va="center",
                         fontsize=fontsize - 2,
-                        color='black' if distance_matrix[i, j] > (vmax / 2) else 'white',
+                        color="black" if distance_matrix[i, j] > (vmax / 2) else "white",
                     )
 
-    plt.title(title, fontsize=fontsize + 2, fontweight='bold')
+    plt.title(title, fontsize=fontsize + 2, fontweight="bold")
     plt.tight_layout()
     plt.show()
 
 
 def visualize_distance_matrix_simple(
     distance_matrix: np.ndarray,
-    title: str = 'Distance Matrix',
+    title: str = "Distance Matrix",
     figure_size: tuple[int, int] = (8, 6),
 ) -> None:
     """
@@ -142,11 +142,11 @@ def visualize_distance_matrix_simple(
         Figure size (width, height) in inches (default: (8, 6))
     """
     plt.figure(figsize=figure_size)
-    plt.imshow(distance_matrix, cmap='viridis', origin='upper')
-    plt.colorbar(label='Distance')
+    plt.imshow(distance_matrix, cmap="viridis", origin="upper")
+    plt.colorbar(label="Distance")
     plt.title(title)
-    plt.xlabel('Indices')
-    plt.ylabel('Indices')
+    plt.xlabel("Indices")
+    plt.ylabel("Indices")
     plt.tight_layout()
     plt.show()
 

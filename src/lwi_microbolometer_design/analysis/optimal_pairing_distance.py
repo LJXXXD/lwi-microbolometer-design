@@ -32,7 +32,7 @@ from scipy.optimize import linear_sum_assignment
 def calculate_optimal_pairing_distance(
     items_a: list[Any],
     items_b: list[Any],
-    metric: str | None = 'euclidean',
+    metric: str | None = "euclidean",
     distance_func: Callable[[Any, Any], float] | None = None,
     metric_params: dict[str, Any] | None = None,
 ) -> float:
@@ -82,15 +82,15 @@ def calculate_optimal_pairing_distance(
     # Custom distance function path (non-vectorized, warns about performance)
     if distance_func is not None:
         warnings.warn(
-            'Custom distance_func provided; using non-vectorized pairwise computation. '
-            'Expect slower performance for large n.',
+            "Custom distance_func provided; using non-vectorized pairwise computation. "
+            "Expect slower performance for large n.",
             UserWarning,
             stacklevel=2,
         )
 
         if len(items_a) != len(items_b):
             raise ValueError(
-                f'Both lists must have the same length. Got {len(items_a)} and {len(items_b)}'
+                f"Both lists must have the same length. Got {len(items_a)} and {len(items_b)}"
             )
 
         n = len(items_a)
@@ -103,7 +103,7 @@ def calculate_optimal_pairing_distance(
         # Vectorized path for supported metrics
         if metric is None:
             raise ValueError(
-                'metric must be provided when distance_func is None. Supported metrics: '
+                "metric must be provided when distance_func is None. Supported metrics: "
                 "'euclidean', 'manhattan', 'chebyshev', 'minkowski', 'cosine', "
                 "'hamming', 'canberra', 'bray_curtis', 'jaccard', 'correlation', 'mahalanobis'"
             )
@@ -116,8 +116,8 @@ def calculate_optimal_pairing_distance(
         except Exception as exc:
             # Vectorization failed - user needs to provide custom function
             warnings.warn(
-                f'Vectorized metric computation failed ({exc!s}). '
-                f'Use distance_func parameter for custom distance functions.',
+                f"Vectorized metric computation failed ({exc!s}). "
+                f"Use distance_func parameter for custom distance functions.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -137,7 +137,7 @@ def _ensure_2d_numeric_arrays(
     """
     if len(items_a) != len(items_b):
         raise ValueError(
-            f'Both lists must have the same length. Got {len(items_a)} and {len(items_b)}'
+            f"Both lists must have the same length. Got {len(items_a)} and {len(items_b)}"
         )
 
     # Convert to arrays (items_a and items_b are lists, convert to arrays)
@@ -178,9 +178,9 @@ def _compute_minkowski_distance(
     a: np.ndarray, b: np.ndarray, metric_params: dict[str, Any]
 ) -> np.ndarray:
     """Compute Minkowski distance."""
-    p = metric_params.get('p', 2)
+    p = metric_params.get("p", 2)
     if p <= 0:
-        raise ValueError('Minkowski p must be > 0')
+        raise ValueError("Minkowski p must be > 0")
     diff = np.abs(a[:, None, :] - b[None, :, :]) ** p
     result = diff.sum(axis=2) ** (1.0 / p)
     return np.asarray(result, dtype=np.float64)
@@ -265,7 +265,7 @@ def _compute_mahalanobis_distance(
     a: np.ndarray, b: np.ndarray, metric_params: dict[str, Any]
 ) -> np.ndarray:
     """Compute Mahalanobis distance."""
-    cov_matrix = metric_params.get('cov_matrix')
+    cov_matrix = metric_params.get("cov_matrix")
     if cov_matrix is None:
         # Use sample covariance if not provided
         combined = np.vstack([a, b])
@@ -308,23 +308,23 @@ def _pairwise_distances_vectorized(
     # This is Python's equivalent of a switch statement
     # Metrics that don't require metric_params
     metric_functions: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
-        'euclidean': _compute_euclidean_distance,
-        'manhattan': _compute_manhattan_distance,
-        'chebyshev': _compute_chebyshev_distance,
-        'cosine': _compute_cosine_distance,
-        'hamming': _compute_hamming_distance,
-        'canberra': _compute_canberra_distance,
-        'bray_curtis': _compute_bray_curtis_distance,
-        'jaccard': _compute_jaccard_distance,
-        'correlation': _compute_correlation_distance,
+        "euclidean": _compute_euclidean_distance,
+        "manhattan": _compute_manhattan_distance,
+        "chebyshev": _compute_chebyshev_distance,
+        "cosine": _compute_cosine_distance,
+        "hamming": _compute_hamming_distance,
+        "canberra": _compute_canberra_distance,
+        "bray_curtis": _compute_bray_curtis_distance,
+        "jaccard": _compute_jaccard_distance,
+        "correlation": _compute_correlation_distance,
     }
 
     # Metrics that require metric_params
     metric_functions_with_params: dict[
         str, Callable[[np.ndarray, np.ndarray, dict[str, Any]], np.ndarray]
     ] = {
-        'minkowski': _compute_minkowski_distance,
-        'mahalanobis': _compute_mahalanobis_distance,
+        "minkowski": _compute_minkowski_distance,
+        "mahalanobis": _compute_mahalanobis_distance,
     }
 
     # Single dispatch lookup and return statement

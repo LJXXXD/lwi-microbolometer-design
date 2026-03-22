@@ -101,7 +101,7 @@ class AnalysisConfig:
     low_diversity_threshold: float = 0.1
 
     @classmethod
-    def quick(cls) -> 'AnalysisConfig':
+    def quick(cls) -> "AnalysisConfig":
         """
         Create a quick analysis configuration for fast analysis of large populations.
 
@@ -126,7 +126,7 @@ class AnalysisConfig:
         )
 
     @classmethod
-    def thorough(cls) -> 'AnalysisConfig':
+    def thorough(cls) -> "AnalysisConfig":
         """
         Create a thorough analysis configuration for detailed population analysis.
 
@@ -152,7 +152,7 @@ class AnalysisConfig:
         )
 
     @classmethod
-    def balanced(cls) -> 'AnalysisConfig':
+    def balanced(cls) -> "AnalysisConfig":
         """
         Create a balanced analysis configuration (same as default).
 
@@ -290,36 +290,36 @@ def analyze_population_diversity(
         )
 
         custom_analysis = {
-            'analysis_parameters': custom_params,
-            'fitness_segments': custom_segment_analyses,
-            'clustering_analysis': custom_clustering_results,
-            'diversity_metrics': custom_diversity_metrics,
-            'recommendations': custom_recommendations,
+            "analysis_parameters": custom_params,
+            "fitness_segments": custom_segment_analyses,
+            "clustering_analysis": custom_clustering_results,
+            "diversity_metrics": custom_diversity_metrics,
+            "recommendations": custom_recommendations,
         }
 
     # Compile comprehensive report
     report = {
-        'population_summary': {
-            'total_solutions': population_size,
-            'fitness_range': {
-                'min': float(np.min(fitness_values)),
-                'max': float(np.max(fitness_values)),
-                'mean': float(np.mean(fitness_values)),
-                'std': float(np.std(fitness_values)),
+        "population_summary": {
+            "total_solutions": population_size,
+            "fitness_range": {
+                "min": float(np.min(fitness_values)),
+                "max": float(np.max(fitness_values)),
+                "mean": float(np.mean(fitness_values)),
+                "std": float(np.std(fitness_values)),
             },
         },
-        'default_analysis': {
-            'analysis_parameters': default_params,
-            'fitness_segments': default_segment_analyses,
-            'clustering_analysis': default_clustering_results,
-            'diversity_metrics': default_diversity_metrics,
-            'recommendations': default_recommendations,
+        "default_analysis": {
+            "analysis_parameters": default_params,
+            "fitness_segments": default_segment_analyses,
+            "clustering_analysis": default_clustering_results,
+            "diversity_metrics": default_diversity_metrics,
+            "recommendations": default_recommendations,
         },
     }
 
     # Add custom analysis if performed
     if custom_analysis is not None:
-        report['custom_analysis'] = custom_analysis
+        report["custom_analysis"] = custom_analysis
 
     return report
 
@@ -344,7 +344,7 @@ def _extend_analysis_config_with_calculated_values(
     params: dict[str, Any] = {}
 
     # Add calculated top_n
-    params['top_n'] = _calculate_top_n(
+    params["top_n"] = _calculate_top_n(
         population_size,
         analysis_config.top_n_percentage,
         analysis_config.min_top_n,
@@ -353,13 +353,13 @@ def _extend_analysis_config_with_calculated_values(
 
     # Add calculated fitness threshold
     fitness_range = np.max(fitness_values) - np.min(fitness_values)
-    params['fitness_threshold'] = (
+    params["fitness_threshold"] = (
         np.max(fitness_values) - analysis_config.fitness_threshold_percentage * fitness_range
     )
 
     # Add clustering parameters
-    params['clustering_radius'] = None  # Use adaptive clustering
-    params['segment_percentages'] = analysis_config.segment_percentages
+    params["clustering_radius"] = None  # Use adaptive clustering
+    params["segment_percentages"] = analysis_config.segment_percentages
 
     return params
 
@@ -377,9 +377,9 @@ def _determine_custom_analysis_parameters(
 
     # Use user-specified top_n or default to percentage-based calculation
     if top_n is not None:
-        params['top_n'] = min(top_n, population_size)
+        params["top_n"] = min(top_n, population_size)
     else:
-        params['top_n'] = _calculate_top_n(
+        params["top_n"] = _calculate_top_n(
             population_size,
             analysis_config.top_n_percentage,
             analysis_config.min_top_n,
@@ -388,22 +388,22 @@ def _determine_custom_analysis_parameters(
 
     # Use user-specified fitness threshold or auto-determine
     if fitness_threshold is not None:
-        params['fitness_threshold'] = fitness_threshold
+        params["fitness_threshold"] = fitness_threshold
     else:
         fitness_range = np.max(fitness_values) - np.min(fitness_values)
-        params['fitness_threshold'] = (
+        params["fitness_threshold"] = (
             np.max(fitness_values) - analysis_config.fitness_threshold_percentage * fitness_range
         )
 
     # Use user-specified clustering radius or adaptive clustering
     if clustering_radius is not None:
-        params['clustering_radius'] = clustering_radius
-        params['use_adaptive_clustering'] = False
+        params["clustering_radius"] = clustering_radius
+        params["use_adaptive_clustering"] = False
     else:
-        params['clustering_radius'] = None
-        params['use_adaptive_clustering'] = analysis_config.use_adaptive_clustering
+        params["clustering_radius"] = None
+        params["use_adaptive_clustering"] = analysis_config.use_adaptive_clustering
 
-    params['segment_percentages'] = analysis_config.segment_percentages
+    params["segment_percentages"] = analysis_config.segment_percentages
 
     return params
 
@@ -425,7 +425,7 @@ def _determine_clustering_distance_func(
     if niching_config and niching_config.enabled and niching_config.use_optimal_pairing:
         # Create optimal pairing distance function
         params_per_group = niching_config.params_per_group
-        metric = niching_config.optimal_pairing_metric or 'euclidean'
+        metric = niching_config.optimal_pairing_metric or "euclidean"
 
         def optimal_pairing_dist_func(array_a: np.ndarray, array_b: np.ndarray) -> float:
             """Reshape arrays and use optimal pairing."""
@@ -454,15 +454,15 @@ def _determine_clustering_distance_func(
 def _empty_analysis_report() -> dict[str, Any]:
     """Return an empty analysis report for empty populations."""
     return {
-        'population_summary': {
-            'total_solutions': 0,
-            'fitness_range': {'min': 0.0, 'max': 0.0, 'mean': 0.0, 'std': 0.0},
-            'analysis_parameters': {},
+        "population_summary": {
+            "total_solutions": 0,
+            "fitness_range": {"min": 0.0, "max": 0.0, "mean": 0.0, "std": 0.0},
+            "analysis_parameters": {},
         },
-        'fitness_segments': {},
-        'clustering_analysis': {'clusters': [], 'method': 'none'},
-        'diversity_metrics': {},
-        'recommendations': ['No solutions to analyze'],
+        "fitness_segments": {},
+        "clustering_analysis": {"clusters": [], "method": "none"},
+        "diversity_metrics": {},
+        "recommendations": ["No solutions to analyze"],
     }
 
 
@@ -478,7 +478,7 @@ def _analyze_fitness_segments(
     """Analyze diversity across different fitness segments of the population."""
     segments = {}
 
-    for percentage in analysis_params['segment_percentages']:
+    for percentage in analysis_params["segment_percentages"]:
         segment_size = int(len(final_population) * percentage)
         if segment_size == 0:
             continue
@@ -495,20 +495,20 @@ def _analyze_fitness_segments(
         # Fitness diversity
         fitness_diversity = np.std(segment_fitness)
 
-        segments[f'top_{int(percentage * 100)}_percent'] = {
-            'size': segment_size,
-            'fitness_range': {
-                'min': float(np.min(segment_fitness)),
-                'max': float(np.max(segment_fitness)),
-                'mean': float(np.mean(segment_fitness)),
-                'std': float(fitness_diversity),
+        segments[f"top_{int(percentage * 100)}_percent"] = {
+            "size": segment_size,
+            "fitness_range": {
+                "min": float(np.min(segment_fitness)),
+                "max": float(np.max(segment_fitness)),
+                "mean": float(np.mean(segment_fitness)),
+                "std": float(fitness_diversity),
             },
-            'parameter_diversity': {
-                'mean_std': float(np.mean(param_diversity)),
-                'max_std': float(np.max(param_diversity)),
-                'min_std': float(np.min(param_diversity)),
+            "parameter_diversity": {
+                "mean_std": float(np.mean(param_diversity)),
+                "max_std": float(np.max(param_diversity)),
+                "min_std": float(np.min(param_diversity)),
             },
-            'solutions': segment_solutions,
+            "solutions": segment_solutions,
         }
 
     return segments
@@ -522,16 +522,16 @@ def _perform_clustering_analysis(
     analysis_config: AnalysisConfig,
 ) -> dict[str, Any]:
     """Perform clustering analysis using adaptive methods."""
-    top_n = analysis_params['top_n']
+    top_n = analysis_params["top_n"]
     top_solutions = final_population[:top_n]
     top_genes = population_genes[:top_n]
 
     if len(top_solutions) < analysis_config.min_top_n_for_analysis:
         return {
-            'method': 'insufficient_data',
-            'clusters': [],
-            'cluster_count': 0,
-            'silhouette_score': 0.0,
+            "method": "insufficient_data",
+            "clusters": [],
+            "cluster_count": 0,
+            "silhouette_score": 0.0,
         }
 
     # Standardize parameters for clustering
@@ -546,37 +546,37 @@ def _perform_clustering_analysis(
     if optimal_k > 1:
         kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
         kmeans_labels = kmeans.fit_predict(scaled_genes)
-        clustering_results['kmeans'] = {
-            'labels': kmeans_labels,
-            'n_clusters': optimal_k,
-            'inertia': kmeans.inertia_,
+        clustering_results["kmeans"] = {
+            "labels": kmeans_labels,
+            "n_clusters": optimal_k,
+            "inertia": kmeans.inertia_,
         }
 
     # Method 2: DBSCAN with adaptive parameters
     dbscan_results = _adaptive_dbscan(scaled_genes)
-    if dbscan_results['n_clusters'] > 0:
-        clustering_results['dbscan'] = dbscan_results
+    if dbscan_results["n_clusters"] > 0:
+        clustering_results["dbscan"] = dbscan_results
 
     # Choose best clustering method
     best_method = _select_best_clustering(clustering_results, scaled_genes)
 
     if best_method is None:
         return {
-            'method': 'no_clusters_found',
-            'clusters': [],
-            'cluster_count': 0,
-            'silhouette_score': 0.0,
+            "method": "no_clusters_found",
+            "clusters": [],
+            "cluster_count": 0,
+            "silhouette_score": 0.0,
         }
 
     # Generate cluster reports
-    labels = clustering_results[best_method]['labels']
+    labels = clustering_results[best_method]["labels"]
     cluster_reports = _generate_cluster_reports(top_solutions, labels, distance_func)
 
     return {
-        'method': best_method,
-        'clusters': cluster_reports,
-        'cluster_count': len(cluster_reports),
-        'silhouette_score': clustering_results[best_method].get('silhouette_score', 0.0),
+        "method": best_method,
+        "clusters": cluster_reports,
+        "cluster_count": len(cluster_reports),
+        "silhouette_score": clustering_results[best_method].get("silhouette_score", 0.0),
     }
 
 
@@ -596,18 +596,18 @@ def _calculate_diversity_metrics(
 
     # Parameter space diversity (independent of distance metric)
     gene_std = np.std(population_genes, axis=0)
-    metrics['parameter_diversity'] = {
-        'mean_std': float(np.mean(gene_std)),
-        'max_std': float(np.max(gene_std)),
-        'min_std': float(np.min(gene_std)),
-        'total_variance': float(np.sum(np.var(population_genes, axis=0))),
+    metrics["parameter_diversity"] = {
+        "mean_std": float(np.mean(gene_std)),
+        "max_std": float(np.max(gene_std)),
+        "min_std": float(np.min(gene_std)),
+        "total_variance": float(np.sum(np.var(population_genes, axis=0))),
     }
 
     # Fitness diversity (independent of distance metric)
-    metrics['fitness_diversity'] = {
-        'std': float(np.std(fitness_values)),
-        'range': float(np.max(fitness_values) - np.min(fitness_values)),
-        'coefficient_of_variation': float(np.std(fitness_values) / np.mean(fitness_values)),
+    metrics["fitness_diversity"] = {
+        "std": float(np.std(fitness_values)),
+        "range": float(np.max(fitness_values) - np.min(fitness_values)),
+        "coefficient_of_variation": float(np.std(fitness_values) / np.mean(fitness_values)),
     }
 
     # Population spread (uses unified diversity calculation that respects niching config)
@@ -620,11 +620,11 @@ def _calculate_diversity_metrics(
         upper_triangle_indices = np.triu_indices(n, k=1)
         distances = distance_matrix[upper_triangle_indices]
 
-        metrics['population_spread'] = {
-            'mean_distance': float(np.mean(distances)),
-            'std_distance': float(np.std(distances)),
-            'min_distance': float(np.min(distances)),
-            'max_distance': float(np.max(distances)),
+        metrics["population_spread"] = {
+            "mean_distance": float(np.mean(distances)),
+            "std_distance": float(np.std(distances)),
+            "min_distance": float(np.min(distances)),
+            "max_distance": float(np.max(distances)),
         }
 
     return metrics
@@ -640,49 +640,49 @@ def _generate_recommendations(
     recommendations = []
 
     # Analyze clustering results
-    cluster_count = clustering_results.get('cluster_count', 0)
+    cluster_count = clustering_results.get("cluster_count", 0)
     if cluster_count == 0:
         recommendations.append(
-            'No distinct solution families found - consider increasing population diversity'
+            "No distinct solution families found - consider increasing population diversity"
         )
     elif cluster_count == 1:
         recommendations.append(
-            'All solutions belong to single family - population may lack diversity'
+            "All solutions belong to single family - population may lack diversity"
         )
     elif cluster_count > analysis_config.max_cluster_count_threshold:
         recommendations.append(
-            'Many solution families found - consider focusing on top-performing families'
+            "Many solution families found - consider focusing on top-performing families"
         )
 
     # Analyze fitness segments
-    top_10_segment = segment_analyses.get('top_10_percent', {})
+    top_10_segment = segment_analyses.get("top_10_percent", {})
     if top_10_segment:
-        fitness_std = top_10_segment['fitness_range']['std']
+        fitness_std = top_10_segment["fitness_range"]["std"]
         if fitness_std < analysis_config.low_diversity_threshold:
             recommendations.append(
-                'Top solutions have very similar fitness - '
-                'consider exploring different solution approaches'
+                "Top solutions have very similar fitness - "
+                "consider exploring different solution approaches"
             )
 
     # Analyze parameter diversity
-    param_diversity = diversity_metrics.get('parameter_diversity', {})
-    if param_diversity.get('mean_std', 0) < analysis_config.low_diversity_threshold:
+    param_diversity = diversity_metrics.get("parameter_diversity", {})
+    if param_diversity.get("mean_std", 0) < analysis_config.low_diversity_threshold:
         recommendations.append(
-            'Low parameter diversity - consider increasing mutation rates or population size'
+            "Low parameter diversity - consider increasing mutation rates or population size"
         )
 
     # Analyze population spread
-    population_spread = diversity_metrics.get('population_spread', {})
+    population_spread = diversity_metrics.get("population_spread", {})
     if population_spread:
-        mean_dist = population_spread.get('mean_distance', 0)
-        std_dist = population_spread.get('std_distance', 0)
+        mean_dist = population_spread.get("mean_distance", 0)
+        std_dist = population_spread.get("std_distance", 0)
         if mean_dist > 0 and std_dist / mean_dist < analysis_config.low_diversity_threshold:
             recommendations.append(
-                'Solutions are clustered tightly - consider increasing exploration'
+                "Solutions are clustered tightly - consider increasing exploration"
             )
 
     if not recommendations:
-        recommendations.append('Population shows good diversity and structure')
+        recommendations.append("Population shows good diversity and structure")
 
     return recommendations
 
@@ -739,12 +739,12 @@ def _adaptive_dbscan(data: np.ndarray) -> dict[str, Any]:
                 best_eps = eps
 
     return {
-        'labels': best_labels if best_labels is not None else np.zeros(len(data)),
-        'n_clusters': len(set(best_labels)) - (1 if -1 in best_labels else 0)
+        "labels": best_labels if best_labels is not None else np.zeros(len(data)),
+        "n_clusters": len(set(best_labels)) - (1 if -1 in best_labels else 0)
         if best_labels is not None
         else 0,
-        'eps': best_eps,
-        'silhouette_score': best_score,
+        "eps": best_eps,
+        "silhouette_score": best_score,
     }
 
 
@@ -757,8 +757,8 @@ def _select_best_clustering(clustering_results: dict[str, Any], _data: np.ndarra
     best_score = -1
 
     for method, results in clustering_results.items():
-        if 'silhouette_score' in results and results['silhouette_score'] > best_score:
-            best_score = results['silhouette_score']
+        if "silhouette_score" in results and results["silhouette_score"] > best_score:
+            best_score = results["silhouette_score"]
             best_method = method
 
     return best_method
@@ -806,25 +806,25 @@ def _generate_cluster_reports(
 
         cluster_reports.append(
             {
-                'cluster_id': int(cluster_id),
-                'size': len(cluster_solutions),
-                'representative_fitness': representative.fitness,
-                'representative_parameters': representative.genes.tolist(),
-                'fitness_range': {
-                    'min': min(sol.fitness for sol in cluster_solutions),
-                    'max': max(sol.fitness for sol in cluster_solutions),
-                    'mean': float(
+                "cluster_id": int(cluster_id),
+                "size": len(cluster_solutions),
+                "representative_fitness": representative.fitness,
+                "representative_parameters": representative.genes.tolist(),
+                "fitness_range": {
+                    "min": min(sol.fitness for sol in cluster_solutions),
+                    "max": max(sol.fitness for sol in cluster_solutions),
+                    "mean": float(
                         np.mean(
                             np.array([sol.fitness for sol in cluster_solutions], dtype=np.float64)
                         )
                     ),
                 },
-                'avg_intra_cluster_distance': float(avg_distance),
-                'solutions': cluster_solutions,
+                "avg_intra_cluster_distance": float(avg_distance),
+                "solutions": cluster_solutions,
             }
         )
 
     # Sort by representative fitness
-    cluster_reports.sort(key=lambda x: x['representative_fitness'], reverse=True)
+    cluster_reports.sort(key=lambda x: x["representative_fitness"], reverse=True)
 
     return cluster_reports

@@ -734,12 +734,7 @@ def create_fitness_evaluator_from_experiment(
         scene = loaded
 
     evaluator = MinDissimilarityFitnessEvaluator(
-        wavelengths=scene.wavelengths,
-        emissivity_curves=scene.emissivity_curves,
-        temperature_k=scene.temperature_k,
-        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
-        air_refractive_index=scene.air_refractive_index,
-        air_transmittance=scene.air_transmittance,
+        scene=scene,
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=experiment.sensor["params_per_basis_function"],
         distance_metric=spectral_angle_mapper,

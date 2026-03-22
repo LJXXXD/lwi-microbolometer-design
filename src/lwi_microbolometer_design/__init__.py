@@ -4,7 +4,7 @@ This package provides tools for designing and optimizing infrared microbolometer
 for substance detection and identification using spectral analysis and optimization algorithms.
 """
 
-__version__ = '0.1.0'
+__version__ = "0.1.0"
 
 # Analysis functions
 from .analysis import (
@@ -42,27 +42,27 @@ from .visualization import (
 
 __all__ = [
     # Package metadata
-    '__version__',
+    "__version__",
     # Analysis functions
-    'compute_distance_matrix',
-    'group_based_dissimilarity_score',
-    'ivat_transform',
-    'min_based_dissimilarity_score',
-    'spectral_angle_mapper',
-    'vat_reorder',
+    "compute_distance_matrix",
+    "group_based_dissimilarity_score",
+    "ivat_transform",
+    "min_based_dissimilarity_score",
+    "spectral_angle_mapper",
+    "vat_reorder",
     # GA functions and classes
-    'AdvancedGA',
-    'MinDissimilarityFitnessEvaluator',
-    'NichingConfig',
-    'analyze_population_diversity',
+    "AdvancedGA",
+    "MinDissimilarityFitnessEvaluator",
+    "NichingConfig",
+    "analyze_population_diversity",
     # Simulation functions
-    'blackbody_emit',
-    'gaussian_parameters_to_unit_amplitude_curves',
-    'generate_structured_gaussian_basis_functions',  # TODO: Review - temporary copy
-    'simulate_sensor_output',
+    "blackbody_emit",
+    "gaussian_parameters_to_unit_amplitude_curves",
+    "generate_structured_gaussian_basis_functions",  # TODO: Review - temporary copy
+    "simulate_sensor_output",
     # Visualization functions
-    'visualize_distance_matrix',
-    'visualize_distance_matrix_large',
-    'visualize_distance_matrix_simple',
-    'visualize_sensor_output',
+    "visualize_distance_matrix",
+    "visualize_distance_matrix_large",
+    "visualize_distance_matrix_simple",
+    "visualize_sensor_output",
 ]

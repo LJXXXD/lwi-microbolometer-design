@@ -48,7 +48,7 @@ def spectral_angle_mapper(vector1: np.ndarray | list, vector2: np.ndarray | list
     norm2 = np.linalg.norm(vec2_array)
 
     if norm1 == 0 or norm2 == 0:
-        raise ValueError('Input vectors must not have zero magnitude.')
+        raise ValueError("Input vectors must not have zero magnitude.")
 
     vec1_normalized = vec1_array / norm1
     vec2_normalized = vec2_array / norm2

@@ -14,11 +14,11 @@ from .sensor_simulation import simulate_sensor_output
 
 __all__ = [
     # Blackbody radiation
-    'blackbody_emit',
+    "blackbody_emit",
     # Gaussian basis functions
-    'gaussian_parameters_to_unit_amplitude_curves',
+    "gaussian_parameters_to_unit_amplitude_curves",
     # Deprecated basis functions
-    'generate_structured_gaussian_basis_functions',  # TODO: Review - temporary copy
+    "generate_structured_gaussian_basis_functions",  # TODO: Review - temporary copy
     # Sensor simulation
-    'simulate_sensor_output',
+    "simulate_sensor_output",
 ]

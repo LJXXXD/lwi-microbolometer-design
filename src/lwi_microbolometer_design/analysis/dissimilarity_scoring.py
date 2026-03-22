@@ -74,7 +74,7 @@ def _ensure_distance_matrix(
         return distance_matrix
 
     if items is None:
-        raise ValueError('Must provide either items or distance_matrix')
+        raise ValueError("Must provide either items or distance_matrix")
 
     if distance_func is None:
         distance_func = spectral_angle_mapper
@@ -208,7 +208,7 @@ def group_based_dissimilarity_score(
 
     num_groups = len(groups)
     if num_groups < min_groups:
-        raise ValueError(f'At least {min_groups} groups are required to compute dissimilarity.')
+        raise ValueError(f"At least {min_groups} groups are required to compute dissimilarity.")
 
     # Calculate inter-group distances
     inter_group_distances = []

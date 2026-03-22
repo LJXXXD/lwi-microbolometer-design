@@ -16,6 +16,7 @@ from lwi_microbolometer_design.analysis import (
     min_based_dissimilarity_score,
     spectral_angle_mapper,
 )
+from lwi_microbolometer_design.data.scene_config import SceneConfig
 from lwi_microbolometer_design.simulation import simulate_sensor_output
 
 
@@ -36,12 +37,7 @@ class MinDissimilarityFitnessEvaluator:
 
     def __init__(
         self,
-        wavelengths: np.ndarray,
-        emissivity_curves: np.ndarray,
-        temperature_k: float,
-        atmospheric_distance_ratio: float,
-        air_refractive_index: float,
-        air_transmittance: np.ndarray,
+        scene: SceneConfig,
         parameters_to_curves: Callable[[list[tuple], np.ndarray], np.ndarray],
         params_per_basis_function: int,
         distance_metric: Callable[[np.ndarray, np.ndarray], float] = spectral_angle_mapper,
@@ -51,18 +47,8 @@ class MinDissimilarityFitnessEvaluator:
 
         Parameters
         ----------
-        wavelengths : np.ndarray
-            Column or 1D array of wavelengths (µm).
-        emissivity_curves : np.ndarray
-            Matrix of emissivity spectra with shape (num_points, num_substances).
-        temperature_k : float
-            Scene temperature in Kelvin.
-        atmospheric_distance_ratio : float
-            Scaling factor for atmospheric path effects.
-        air_refractive_index : float
-            Refractive index of air (unitless).
-        air_transmittance : np.ndarray
-            Atmospheric transmittance array aligned to wavelengths.
+        scene : SceneConfig
+            Immutable scene data (wavelength grid, emissivity, atmosphere, temperature).
         parameters_to_curves : callable
             Function that converts parameter tuples to basis function curves.
             Input: List[Tuple[float, ...]] -> Output: np.ndarray
@@ -74,21 +60,10 @@ class MinDissimilarityFitnessEvaluator:
         distance_metric : callable, optional
             Function to compute pairwise distances; default is SAM.
         """
-        # Store parameters
-        self.wavelengths = wavelengths
-        self.emissivity_curves = emissivity_curves
-        self.temperature_k = temperature_k
-        self.atmospheric_distance_ratio = atmospheric_distance_ratio
-        self.air_refractive_index = air_refractive_index
-        self.air_transmittance = air_transmittance
+        self.scene = scene
         self.distance_metric = distance_metric
         self.params_per_basis_function = params_per_basis_function
         self.parameters_to_curves = parameters_to_curves
-
-        # Normalize wavelength shape for downstream broadcasting
-        # Convert column vectors (n, 1) to 1D (n,), leave 1D arrays unchanged
-        # np.squeeze removes dimensions of size 1, so (n, 1) -> (n,)
-        self.wavelengths_1d = np.squeeze(self.wavelengths)
 
     def fitness_func(
         self, _ga_instance: object, chromosome: np.ndarray, _chromosome_idx: int
@@ -124,8 +99,8 @@ class MinDissimilarityFitnessEvaluator:
 
         if num_genes % self.params_per_basis_function != 0:
             raise ValueError(
-                f'Chromosome length ({num_genes}) must be divisible by '
-                f'params_per_basis_function ({self.params_per_basis_function})'
+                f"Chromosome length ({num_genes}) must be divisible by "
+                f"params_per_basis_function ({self.params_per_basis_function})"
             )
 
         # Convert chromosome array to list of parameter tuples
@@ -136,16 +111,16 @@ class MinDissimilarityFitnessEvaluator:
         ]
 
         # Convert parameters to basis function curves
-        basis_functions = self.parameters_to_curves(basis_params, self.wavelengths_1d)
+        basis_functions = self.parameters_to_curves(basis_params, self.scene.wavelengths)
 
         sensor_outputs = simulate_sensor_output(
-            wavelengths=self.wavelengths_1d,
-            substances_emissivity=self.emissivity_curves,
+            wavelengths=self.scene.wavelengths,
+            substances_emissivity=self.scene.emissivity_curves,
             basis_functions=basis_functions,
-            temperature_k=self.temperature_k,
-            atmospheric_distance_ratio=self.atmospheric_distance_ratio,
-            air_refractive_index=self.air_refractive_index,
-            air_transmittance=self.air_transmittance,
+            temperature_k=self.scene.temperature_k,
+            atmospheric_distance_ratio=self.scene.atmospheric_distance_ratio,
+            air_refractive_index=self.scene.air_refractive_index,
+            air_transmittance=self.scene.air_transmittance,
         )
 
         distance_matrix = compute_distance_matrix(

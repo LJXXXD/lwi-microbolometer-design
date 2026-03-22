@@ -12,9 +12,9 @@ from .sensor_output_visualization import visualize_sensor_output
 
 __all__ = [
     # Distance matrix visualization
-    'visualize_distance_matrix',
-    'visualize_distance_matrix_large',  # Backward compatibility
-    'visualize_distance_matrix_simple',
+    "visualize_distance_matrix",
+    "visualize_distance_matrix_large",  # Backward compatibility
+    "visualize_distance_matrix_simple",
     # Sensor output visualization
-    'visualize_sensor_output',
+    "visualize_sensor_output",
 ]

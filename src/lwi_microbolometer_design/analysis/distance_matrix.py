@@ -32,7 +32,7 @@ def _extract_data_from_items(
 
         # Validate axis is within array dimensions
         if axis >= items.ndim:
-            raise ValueError(f'axis={axis} is out of bounds for array with {items.ndim} dimensions')
+            raise ValueError(f"axis={axis} is out of bounds for array with {items.ndim} dimensions")
 
         # Extract items along the specified axis
         # Use advanced indexing instead of np.take to avoid mypy stub issues
@@ -49,12 +49,12 @@ def _extract_data_from_items(
 
         # Attribute doesn't make sense for arrays
         if attribute is not None:
-            raise ValueError('attribute parameter cannot be used with numpy array input')
+            raise ValueError("attribute parameter cannot be used with numpy array input")
         return data
 
     # Handle list input
     if axis is not None:
-        raise ValueError('axis parameter can only be used with numpy array input')
+        raise ValueError("axis parameter can only be used with numpy array input")
 
     # Extract data from objects if needed, otherwise use items directly
     if attribute is not None:
@@ -74,10 +74,10 @@ def _validate_optimal_pairing_params(
         return
 
     if params_per_group is None:
-        raise ValueError('params_per_group must be provided when use_optimal_pairing=True')
+        raise ValueError("params_per_group must be provided when use_optimal_pairing=True")
     if metric is None and distance_func is None:
         raise ValueError(
-            'Either metric or distance_func must be provided when use_optimal_pairing=True'
+            "Either metric or distance_func must be provided when use_optimal_pairing=True"
         )
 
 
@@ -104,8 +104,8 @@ def _compute_optimal_pairing_distances(
             # Validate array length is divisible by params_per_group
             if len(array_i) % params_per_group != 0 or len(array_j) % params_per_group != 0:
                 raise ValueError(
-                    f'Array lengths ({len(array_i)}, {len(array_j)}) must be '
-                    f'divisible by params_per_group ({params_per_group})'
+                    f"Array lengths ({len(array_i)}, {len(array_j)}) must be "
+                    f"divisible by params_per_group ({params_per_group})"
                 )
 
             groups_i = array_i.reshape(-1, params_per_group)
@@ -123,7 +123,7 @@ def _compute_optimal_pairing_distances(
             else:
                 # Use custom distance function
                 if distance_func is None:
-                    raise ValueError('distance_func must be provided when metric is None')
+                    raise ValueError("distance_func must be provided when metric is None")
 
                 def pairwise_distance_func(item_a: Any, item_b: Any) -> float:
                     # Convert to arrays with explicit type checking
@@ -260,13 +260,13 @@ def compute_distance_matrix(
     if use_optimal_pairing:
         # After validation, params_per_group is guaranteed to be int
         if params_per_group is None:
-            raise ValueError('params_per_group must be provided when use_optimal_pairing=True')
+            raise ValueError("params_per_group must be provided when use_optimal_pairing=True")
         return _compute_optimal_pairing_distances(
             data, params_per_group, metric, metric_params, distance_func
         )
 
     # Standard mode: regular distance computation
     if distance_func is None:
-        raise ValueError('distance_func must be provided when use_optimal_pairing=False')
+        raise ValueError("distance_func must be provided when use_optimal_pairing=False")
 
     return _compute_standard_distances(data, distance_func)

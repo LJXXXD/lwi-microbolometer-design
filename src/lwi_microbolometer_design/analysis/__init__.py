@@ -20,15 +20,15 @@ from .vat import ivat_transform, vat_reorder
 
 __all__ = [
     # Dissimilarity scoring
-    'group_based_dissimilarity_score',
-    'min_based_dissimilarity_score',
+    "group_based_dissimilarity_score",
+    "min_based_dissimilarity_score",
     # Distance matrix computation
-    'compute_distance_matrix',
+    "compute_distance_matrix",
     # Distance metrics
-    'spectral_angle_mapper',
+    "spectral_angle_mapper",
     # Optimal pairing distance
-    'calculate_optimal_pairing_distance',
+    "calculate_optimal_pairing_distance",
     # VAT analysis
-    'ivat_transform',
-    'vat_reorder',
+    "ivat_transform",
+    "vat_reorder",
 ]

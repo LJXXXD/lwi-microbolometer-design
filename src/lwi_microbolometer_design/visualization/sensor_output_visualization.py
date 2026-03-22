@@ -43,14 +43,14 @@ def visualize_sensor_output(
 
     # Plot each substance's sensor output as a curve
     for i in range(n):
-        label = substances_names[i] if substances_names is not None else f'Substance {i + 1}'
-        plt.plot(x, sensor_outputs[:, i], marker='o', label=label, linewidth=2)
+        label = substances_names[i] if substances_names is not None else f"Substance {i + 1}"
+        plt.plot(x, sensor_outputs[:, i], marker="o", label=label, linewidth=2)
 
     # Add labels, title, and legend
-    plt.xlabel('Basis Function Index', fontsize=fontsize)
-    plt.ylabel('Sensor Output Values (Volt)', fontsize=fontsize)
-    plt.title('Sensor Output Comparison', fontsize=fontsize + 2, fontweight='bold')
-    plt.legend(loc='best', fontsize=fontsize)
+    plt.xlabel("Basis Function Index", fontsize=fontsize)
+    plt.ylabel("Sensor Output Values (Volt)", fontsize=fontsize)
+    plt.title("Sensor Output Comparison", fontsize=fontsize + 2, fontweight="bold")
+    plt.legend(loc="best", fontsize=fontsize)
 
     # Optionally label x-ticks with basis function labels
     if basis_funcs_labels is not None:
@@ -59,6 +59,6 @@ def visualize_sensor_output(
         plt.xticks(ticks=x, fontsize=fontsize)
 
     # Show grid for better readability
-    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.grid(True, linestyle="--", alpha=0.6)
     plt.tight_layout()
     plt.show()

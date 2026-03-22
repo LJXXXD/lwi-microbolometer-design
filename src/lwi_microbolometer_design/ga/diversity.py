@@ -79,7 +79,7 @@ def compute_population_distance_matrix(
         # Use distance_matrix with optimal pairing option
         return compute_distance_matrix(
             items,
-            metric=niching_config.optimal_pairing_metric or 'euclidean',
+            metric=niching_config.optimal_pairing_metric or "euclidean",
             use_optimal_pairing=True,
             params_per_group=niching_config.params_per_group,
         )
@@ -88,7 +88,7 @@ def compute_population_distance_matrix(
     metric = (
         niching_config.distance_metric
         if niching_config and niching_config.distance_metric
-        else 'euclidean'
+        else "euclidean"
     )
     result = cdist(population, population, metric=metric)
     return np.asarray(result, dtype=np.float64)
