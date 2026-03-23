@@ -8,11 +8,17 @@ __version__ = "0.1.0"
 
 # Analysis functions
 from .analysis import (
+    ConditionLabel,
+    RobustnessResult,
     compute_distance_matrix,
+    evaluate_archive_robustness,
+    evaluate_elite_robustness,
+    evaluate_solutions_robustness,
     group_based_dissimilarity_score,
     ivat_transform,
     min_based_dissimilarity_score,
     spectral_angle_mapper,
+    summarise_robustness,
     vat_reorder,
 )
 
@@ -47,6 +53,11 @@ from .simulation import (
 
 # Visualization functions
 from .visualization import (
+    plot_condition_sensitivity,
+    plot_fitness_degradation_heatmap,
+    plot_fitness_distribution_by_condition,
+    plot_retention_histogram,
+    plot_worst_case_vs_nominal,
     visualize_distance_matrix,
     visualize_distance_matrix_large,
     visualize_distance_matrix_simple,
@@ -57,11 +68,17 @@ __all__ = [
     # Package metadata
     "__version__",
     # Analysis functions
+    "ConditionLabel",
+    "RobustnessResult",
     "compute_distance_matrix",
+    "evaluate_archive_robustness",
+    "evaluate_elite_robustness",
+    "evaluate_solutions_robustness",
     "group_based_dissimilarity_score",
     "ivat_transform",
     "min_based_dissimilarity_score",
     "spectral_angle_mapper",
+    "summarise_robustness",
     "vat_reorder",
     # GA functions and classes
     "AdvancedGA",
@@ -84,6 +101,11 @@ __all__ = [
     "gaussian_parameters_to_unit_amplitude_curves",
     "simulate_sensor_output",
     # Visualization functions
+    "plot_condition_sensitivity",
+    "plot_fitness_degradation_heatmap",
+    "plot_fitness_distribution_by_condition",
+    "plot_retention_histogram",
+    "plot_worst_case_vs_nominal",
     "visualize_distance_matrix",
     "visualize_distance_matrix_large",
     "visualize_distance_matrix_simple",
