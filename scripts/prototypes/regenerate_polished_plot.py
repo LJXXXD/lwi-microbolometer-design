@@ -13,8 +13,8 @@ from polish_map_elites import plot_polished_elites
 
 def main() -> None:
     """Regenerate plots from saved results."""
-    output_dir = Path("outputs/map_elites/polished")
-    results_file = output_dir / "polished_results.pkl"
+    output_dir = Path("outputs/map_elites/hc")
+    results_file = output_dir / "map_elites_hc_results.pkl"
 
     if not results_file.exists():
         print(f"Error: Results file not found: {results_file}")

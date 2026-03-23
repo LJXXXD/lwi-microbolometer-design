@@ -24,6 +24,7 @@ dependencies = [
     "tqdm",
     "numba",
     "pyyaml",
+    "cma",
 ]
 
 [dependency-groups]

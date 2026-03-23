@@ -24,6 +24,20 @@ from .ga import (
     analyze_population_diversity,
 )
 
+# MAP-Elites functions
+from .map_elites import (
+    EmitterBase,
+    OptimizingEmitter,
+    plot_cma_me_progress,
+    plot_map_elites_heatmap,
+    plot_polished_elites,
+    plot_top_elites,
+    polish_single_elite_cma,
+    polish_single_elite_hc,
+    run_cma_me,
+    run_map_elites,
+)
+
 # Simulation functions
 from .simulation import (
     blackbody_emit,
@@ -54,6 +68,17 @@ __all__ = [
     "MinDissimilarityFitnessEvaluator",
     "NichingConfig",
     "analyze_population_diversity",
+    # MAP-Elites functions
+    "EmitterBase",
+    "OptimizingEmitter",
+    "plot_cma_me_progress",
+    "plot_map_elites_heatmap",
+    "plot_polished_elites",
+    "plot_top_elites",
+    "polish_single_elite_cma",
+    "polish_single_elite_hc",
+    "run_cma_me",
+    "run_map_elites",
     # Simulation functions
     "blackbody_emit",
     "gaussian_parameters_to_unit_amplitude_curves",
