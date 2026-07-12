@@ -19,8 +19,11 @@ import numpy as np
 import pandas as pd
 
 from lwi_microbolometer_design.analysis import (
+    add_clodd_partition_lines,
+    clodd_partition,
     compute_distance_matrix,
     ivat_transform,
+    normalize_ordered_dissimilarity,
     vat_reorder,
 )
 from lwi_microbolometer_design.data.scene_config import SceneConfig
@@ -71,12 +74,14 @@ def visualize_ga_results(
     *,
     params_per_basis_function: int = 2,
     parameters_to_curves: ParametersToCurves = gaussian_parameters_to_unit_amplitude_curves,
+    clodd_c_max: int | None = None,
+    clodd_seed: int | None = None,
 ) -> None:
     """
     Create comprehensive visualizations of GA results.
 
     Generates multiple plots including fitness evolution, diversity metrics,
-    top solutions, and IVAT analysis.
+    top solutions, and IVAT analysis with CLODD partitioning on the iVAT panel.
 
     Parameters
     ----------
@@ -100,6 +105,10 @@ def visualize_ga_results(
     parameters_to_curves : callable, optional
         Maps ``(parameter_tuples, wavelengths)`` to an array of shape
         ``(n_wavelengths, n_basis)``. Default: Gaussian unit-amplitude curves.
+    clodd_c_max : int | None, optional
+        Passed to :func:`plot_ivat_analysis`: max number of CLODD clusters to try.
+    clodd_seed : int | None, optional
+        RNG seed for CLODD PSO when exhaustive search is not used.
 
     Notes
     -----
@@ -174,6 +183,8 @@ def visualize_ga_results(
             high_quality_fitness,
             output_dir,
             params_per_basis_function=params_per_basis_function,
+            clodd_c_max=clodd_c_max,
+            clodd_seed=clodd_seed,
         )
 
     # 6. High-Fitness Count Evolution (Multimodal Analysis)
@@ -403,12 +414,16 @@ def plot_ivat_analysis(
     output_dir: Path,
     *,
     params_per_basis_function: int = 2,
+    clodd_c_max: int | None = None,
+    clodd_seed: int | None = None,
 ) -> None:
     """
     Create IVAT visualizations with fixed color range.
 
     IVAT (Improved Visual Assessment of Cluster Tendency) helps visualize
-    clustering structure in high-quality solutions.
+    clustering structure in high-quality solutions. When ``n >= 3``, CLODD
+    (Clustering in Ordered Dissimilarity Data) is run on the normalized iVAT
+    matrix and partition boundaries are drawn on the VAT and iVAT panels.
 
     Parameters
     ----------
@@ -420,6 +435,10 @@ def plot_ivat_analysis(
         Directory to save the plot
     params_per_basis_function : int, optional
         Genes per grouped basis function for optimal-pairing distance (default: 2).
+    clodd_c_max : int | None, optional
+        Largest number of CLODD clusters to try (default ``n - 1``).
+    clodd_seed : int | None, optional
+        RNG seed for CLODD PSO when exhaustive search is not used.
     """
     # Use arrays directly (no need for Chromosome class)
     parameter_sets = [np.array(genes) for genes in high_quality_population]
@@ -446,6 +465,17 @@ def plot_ivat_analysis(
     vat_matrix, _reorder = vat_reorder(distance_matrix)
     ivat_matrix = ivat_transform(vat_matrix)
 
+    n_sol = distance_matrix.shape[0]
+    clodd_result = None
+    if n_sol >= 3:
+        d_norm = normalize_ordered_dissimilarity(ivat_matrix)
+        clodd_result = clodd_partition(
+            d_norm,
+            c_max=clodd_c_max,
+            seed=clodd_seed,
+            mode="auto",
+        )
+
     # Create subplot with 3 panels
     _fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -459,19 +489,28 @@ def plot_ivat_analysis(
     # VAT matrix
     im2 = axes[1].imshow(vat_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
     axes[1].set_title("VAT Matrix", fontsize=12)
-    axes[1].set_xlabel("Solution Index")
-    axes[1].set_ylabel("Solution Index")
+    axes[1].set_xlabel("Solution Index (VAT order)")
+    axes[1].set_ylabel("Solution Index (VAT order)")
     plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
 
     # IVAT matrix
     im3 = axes[2].imshow(ivat_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
-    axes[2].set_title("IVAT Matrix (Clustering)", fontsize=12)
-    axes[2].set_xlabel("Solution Index")
-    axes[2].set_ylabel("Solution Index")
+    axes[2].set_title("iVAT Matrix (CLODD partition)", fontsize=12)
+    axes[2].set_xlabel("Solution Index (VAT order)")
+    axes[2].set_ylabel("Solution Index (VAT order)")
     plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
 
+    if clodd_result is not None:
+        add_clodd_partition_lines(axes[1], clodd_result.cuts, n=n_sol)
+        add_clodd_partition_lines(axes[2], clodd_result.cuts, n=n_sol)
+
     plt.suptitle(
-        f"IVAT Diversity Analysis (Top {len(high_quality_population)} Solutions)",
+        f"IVAT Diversity Analysis (Top {len(high_quality_population)} Solutions)"
+        + (
+            f" — CLODD: c={clodd_result.n_clusters}, E={clodd_result.objective:.3f}"
+            if clodd_result is not None
+            else ""
+        ),
         fontsize=14,
         fontweight="bold",
     )

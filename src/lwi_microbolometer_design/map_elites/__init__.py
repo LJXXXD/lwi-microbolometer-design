@@ -23,10 +23,15 @@ from .cma_me import run_cma_me
 from .emitters import EmitterBase, OptimizingEmitter
 from .polish import polish_single_elite_cma, polish_single_elite_hc
 from .visualization import (
+    family_labels_for_top_elites,
+    family_labels_for_top_elites_graph_threshold,
     plot_cma_me_progress,
     plot_map_elites_heatmap,
     plot_polished_elites,
     plot_top_elites,
+    plot_top_from_population,
+    plot_top_individual_curves,
+    set_tight_ylim_stacked_spectra,
 )
 
 __all__ = [
@@ -47,8 +52,13 @@ __all__ = [
     "polish_single_elite_cma",
     "polish_single_elite_hc",
     # Visualization
+    "family_labels_for_top_elites",
+    "family_labels_for_top_elites_graph_threshold",
     "plot_cma_me_progress",
     "plot_map_elites_heatmap",
     "plot_polished_elites",
     "plot_top_elites",
+    "plot_top_from_population",
+    "plot_top_individual_curves",
+    "set_tight_ylim_stacked_spectra",
 ]

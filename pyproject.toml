@@ -45,3 +45,6 @@ python_files = ["test_*.py"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/v2_paper_2026/*.py" = ["E402"]

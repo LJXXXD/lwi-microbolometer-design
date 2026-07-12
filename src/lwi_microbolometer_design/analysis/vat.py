@@ -36,7 +36,8 @@ def vat_reorder(distance_matrix: np.ndarray) -> tuple[np.ndarray, list]:
 
     # Start with one of the most distant points
     reorder = [i]
-    remaining = set(range(n))  # Remaining points to process
+    remaining = set(range(n))
+    remaining.remove(i)
 
     # Iteratively find the next closest point to any selected point
     while remaining:

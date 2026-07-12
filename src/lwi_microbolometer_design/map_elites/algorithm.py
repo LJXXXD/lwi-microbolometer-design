@@ -1,8 +1,11 @@
 """MAP-Elites core algorithm: mutation and main loop."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import numpy as np
+from tqdm import tqdm
 
 from .archive import (
     archive_coverage_pct,
@@ -62,6 +65,10 @@ def run_map_elites(
     num_iterations: int = 200000,
     mutation_probability: float = 0.1,
     random_seed: int = 42,
+    *,
+    show_progress: bool = False,
+    progress_desc_init: str = "MAP-Elites archive init",
+    progress_desc_main: str = "MAP-Elites mutations",
 ) -> dict[tuple[int, int], dict[str, Any]]:
     """Run the MAP-Elites quality-diversity algorithm.
 
@@ -83,6 +90,12 @@ def run_map_elites(
         Per-gene mutation probability.
     random_seed : int
         Random seed.
+    show_progress : bool, optional
+        If True, tqdm bars for archive initialisation and main mutations (ETA, it/s).
+    progress_desc_init : str, optional
+        Description for the initial-seeding bar.
+    progress_desc_main : str, optional
+        Description for the mutation loop bar.
 
     Returns
     -------
@@ -98,11 +111,24 @@ def run_map_elites(
         grid_resolution=grid_resolution,
         mu_range=mu_range,
         random_seed=random_seed,
+        show_progress=show_progress,
+        progress_desc=progress_desc_init,
     )
 
     archive_list = list(archive.values())
 
-    print(f"\nRunning MAP-Elites for {num_iterations} iterations...")
+    pbar: tqdm | None = None
+    if show_progress:
+        pbar = tqdm(
+            total=num_iterations,
+            desc=progress_desc_main,
+            unit="it",
+            dynamic_ncols=True,
+            mininterval=0.2,
+            smoothing=0.05,
+        )
+    else:
+        print(f"\nRunning MAP-Elites for {num_iterations} iterations...")
 
     for iteration in range(num_iterations):
         if len(archive_list) == 0:
@@ -133,7 +159,17 @@ def run_map_elites(
             }
             archive_list = list(archive.values())
 
-        if (iteration + 1) % 5000 == 0:
+        if pbar is not None:
+            pbar.update(1)
+            if (iteration + 1) % 500 == 0 or iteration + 1 == num_iterations:
+                filled_cells = len(archive)
+                best_fitness = max(ind["fitness"] for ind in archive.values())
+                pbar.set_postfix(
+                    cells=filled_cells,
+                    best=f"{best_fitness:.2f}",
+                    refresh=False,
+                )
+        elif (iteration + 1) % 5000 == 0:
             filled_cells = len(archive)
             total_cells = reachable_cell_count(grid_resolution)
             coverage = archive_coverage_pct(filled_cells, grid_resolution)
@@ -142,6 +178,9 @@ def run_map_elites(
                 f"  Iter: {iteration + 1} | Archive: {filled_cells}/{total_cells} "
                 f"({coverage:.1f}%) | Best Fitness: {best_fitness:.2f}"
             )
+
+    if pbar is not None:
+        pbar.close()
 
     total_cells = reachable_cell_count(grid_resolution)
     print(f"\nMAP-Elites complete: {len(archive)}/{total_cells} reachable cells filled")

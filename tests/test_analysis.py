@@ -8,6 +8,7 @@ from lwi_microbolometer_design.analysis import (
     compute_distance_matrix,
     min_based_dissimilarity_score,
     group_based_dissimilarity_score,
+    vat_reorder,
 )
 
 
@@ -83,6 +84,20 @@ class TestComputeDistanceMatrix:
 
         assert distance_matrix.shape == (1, 1)
         assert distance_matrix[0, 0] == 0.0
+
+
+class TestVatReorder:
+    """VAT reordering must be a valid permutation (regression: starter index duplicated)."""
+
+    def test_vat_reorder_is_permutation_of_indices(self) -> None:
+        rng = np.random.default_rng(0)
+        n = 11
+        d = rng.random((n, n))
+        d = (d + d.T) / 2.0
+        np.fill_diagonal(d, 0.0)
+        _vat_matrix, reorder = vat_reorder(d)
+        assert len(reorder) == n
+        assert sorted(reorder) == list(range(n))
 
 
 class TestScoringFunctions:

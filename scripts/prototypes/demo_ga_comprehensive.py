@@ -23,11 +23,8 @@ import numpy as np
 import pandas as pd
 
 from lwi_microbolometer_design import (
-    compute_distance_matrix,
     gaussian_parameters_to_unit_amplitude_curves,
-    ivat_transform,
     spectral_angle_mapper,
-    vat_reorder,
 )
 from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 from lwi_microbolometer_design.ga import (
@@ -36,6 +33,7 @@ from lwi_microbolometer_design.ga import (
     NichingConfig,
     diversity_preserving_mutation,
 )
+from lwi_microbolometer_design.ga.visualization import plot_ivat_analysis
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -654,69 +652,6 @@ def plot_best_design(
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(output_dir / "05_best_design.png", dpi=300, bbox_inches="tight")
-    plt.close()
-
-
-def plot_ivat_analysis(
-    high_quality_population: np.ndarray, _high_quality_fitness: np.ndarray, output_dir: Path
-) -> None:
-    """Create IVAT visualizations with fixed color range."""
-    # Use arrays directly (no need for Chromosome class)
-    parameter_sets = [np.array(genes) for genes in high_quality_population]
-    # Use optimal pairing mode for grouped parameters (mu, sigma pairs)
-    distance_matrix = compute_distance_matrix(
-        parameter_sets,
-        metric="euclidean",
-        use_optimal_pairing=True,
-        params_per_group=2,  # Each basis function has 2 params: (mu, sigma)
-    )
-
-    # Determine color range (exclude diagonal zeros)
-    all_distances = distance_matrix.flatten()
-    all_distances = all_distances[all_distances > 0]
-
-    if len(all_distances) == 0:
-        logger.warning("No valid distances found for IVAT analysis")
-        return
-
-    global_vmin = np.percentile(all_distances, 5)
-    global_vmax = np.percentile(all_distances, 95)
-
-    # Compute VAT and IVAT
-    vat_matrix, _reorder = vat_reorder(distance_matrix)
-    ivat_matrix = ivat_transform(vat_matrix)
-
-    # Create subplot with 3 panels
-    _fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    # Original distance matrix
-    im1 = axes[0].imshow(distance_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
-    axes[0].set_title("Original Distance Matrix", fontsize=12)
-    axes[0].set_xlabel("Solution Index")
-    axes[0].set_ylabel("Solution Index")
-    plt.colorbar(im1, ax=axes[0], fraction=0.046, pad=0.04)
-
-    # VAT matrix
-    im2 = axes[1].imshow(vat_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
-    axes[1].set_title("VAT Matrix", fontsize=12)
-    axes[1].set_xlabel("Solution Index")
-    axes[1].set_ylabel("Solution Index")
-    plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
-
-    # IVAT matrix
-    im3 = axes[2].imshow(ivat_matrix, cmap="viridis", vmin=global_vmin, vmax=global_vmax)
-    axes[2].set_title("IVAT Matrix (Clustering)", fontsize=12)
-    axes[2].set_xlabel("Solution Index")
-    axes[2].set_ylabel("Solution Index")
-    plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
-
-    plt.suptitle(
-        f"IVAT Diversity Analysis (Top {len(high_quality_population)} Solutions)",
-        fontsize=14,
-        fontweight="bold",
-    )
-    plt.tight_layout()
-    plt.savefig(output_dir / "06_ivat_diversity.png", dpi=300, bbox_inches="tight")
     plt.close()
 
 

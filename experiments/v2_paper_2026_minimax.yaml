@@ -1,0 +1,24 @@
+# Minimax (worst-case) fitness over the same 5x5 environmental grid as Phase 1 robustness.
+# Consumed by scripts/v2_paper_2026/run_08_minimax_optimization.py (vanilla MAP-Elites loop).
+experiment:
+  name: v2_paper_2026_minimax
+  description: >
+    25 scenes (temperature x atmospheric distance); fitness is min SAM-based
+    score across conditions (robustness_aggregation min).
+  data:
+    spectral_data_file: data/Test 3 - 4 White Powers/white_powders_with_labels.xlsx
+    air_transmittance_file: data/Test 3 - 4 White Powers/Air transmittance.xlsx
+    temperature_kelvin: [273.15, 283.15, 293.15, 303.15, 313.15]
+    atmospheric_distance_ratio: [0.05, 0.08, 0.11, 0.15, 0.20]
+    air_refractive_index: 1.0
+    robustness_aggregation: min
+  sensor:
+    num_basis_functions: 4
+    params_per_basis_function: 2
+    param_bounds:
+      - {low: 4.0, high: 20.0}
+      - {low: 0.1, high: 4.0}
+  search_space:
+    sol_per_pop: [100]
+  execution:
+    num_runs: 1

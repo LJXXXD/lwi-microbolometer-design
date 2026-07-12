@@ -17,6 +17,7 @@ Roadmap item 1 in ``docs/CODEBASE_WALKTHROUGH_AND_STRATEGY.md``, lines 226-244.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -139,6 +140,88 @@ class RobustnessResult:
         return int(np.argmin(self.fitness_per_condition))
 
 
+def find_nominal_scene_index(
+    scenes: Sequence[SceneConfig],
+    nominal: SceneConfig,
+    *,
+    abs_temp_k: float = 1e-3,
+    abs_dist: float = 1e-6,
+    abs_n: float = 1e-6,
+) -> int:
+    """Index of the scene in *scenes* that matches optimisation/training *nominal*.
+
+    Used so robustness summaries can set ``nominal_fitness`` from the same
+    forward-pass pipeline as ``fitness_per_condition`` (archive fitness can differ
+    slightly from a fresh evaluation).
+
+    Parameters
+    ----------
+    scenes :
+        Grid loaded for robustness testing (same order as ``fitness_per_condition``).
+    nominal :
+        Training scene (e.g. from :func:`load_nominal_scene`).
+    abs_temp_k, abs_dist, abs_n :
+        Absolute tolerances for temperature (K), distance ratio, and refractive index.
+
+    Returns
+    -------
+    int
+        Matching index.
+
+    Raises
+    ------
+    ValueError
+        If no scene matches within tolerance.
+    """
+    for i, s in enumerate(scenes):
+        if (
+            math.isclose(s.temperature_k, nominal.temperature_k, abs_tol=abs_temp_k)
+            and math.isclose(
+                s.atmospheric_distance_ratio,
+                nominal.atmospheric_distance_ratio,
+                abs_tol=abs_dist,
+            )
+            and math.isclose(s.air_refractive_index, nominal.air_refractive_index, abs_tol=abs_n)
+        ):
+            return i
+    msg = (
+        "No robustness grid scene matches nominal training "
+        f"(T={nominal.temperature_k} K, d={nominal.atmospheric_distance_ratio}, "
+        f"n={nominal.air_refractive_index})."
+    )
+    raise ValueError(msg)
+
+
+def align_nominal_fitness_to_training_scene(
+    results: list[RobustnessResult],
+    scenes: Sequence[SceneConfig],
+    nominal: SceneConfig,
+) -> int:
+    """Set each result's ``nominal_fitness`` from the grid cell that matches *nominal*.
+
+    Retention and degradation metrics then compare worst/other conditions to the
+    same re-evaluated baseline as the rest of ``fitness_per_condition``.
+
+    Parameters
+    ----------
+    results :
+        Output of :func:`evaluate_archive_robustness` / :func:`evaluate_solutions_robustness`.
+    scenes :
+        Same sequence passed into evaluation.
+    nominal :
+        Training scene.
+
+    Returns
+    -------
+    int
+        Index of the nominal condition in *scenes*.
+    """
+    idx = find_nominal_scene_index(scenes, nominal)
+    for r in results:
+        r.nominal_fitness = float(r.fitness_per_condition[idx])
+    return idx
+
+
 def evaluate_elite_fitness(
     chromosome: np.ndarray,
     scene: SceneConfig,
@@ -248,6 +331,9 @@ def evaluate_solutions_robustness(
     params_per_basis_function: int,
     distance_metric: Callable[[np.ndarray, np.ndarray], float] = spectral_angle_mapper,
     top_n: int | None = None,
+    *,
+    show_progress: bool = True,
+    progress_desc: str = "Robustness evaluation",
 ) -> list[RobustnessResult]:
     """Evaluate environmental robustness for a collection of sensor designs.
 
@@ -271,6 +357,10 @@ def evaluate_solutions_robustness(
     top_n : int | None
         If set, evaluate only the *top_n* highest-fitness solutions.
         ``None`` evaluates all solutions.
+    show_progress : bool, optional
+        If True, show a tqdm bar with ETA and rate (elites/s).
+    progress_desc : str, optional
+        Progress bar label.
 
     Returns
     -------
@@ -287,10 +377,20 @@ def evaluate_solutions_robustness(
         len(scenes),
     )
 
+    if show_progress:
+        iterator = tqdm(
+            sorted_solutions,
+            desc=progress_desc,
+            unit="elite",
+            dynamic_ncols=True,
+            mininterval=0.2,
+            smoothing=0.05,
+        )
+    else:
+        iterator = sorted_solutions
+
     results: list[RobustnessResult] = []
-    for rank, sol in enumerate(
-        tqdm(sorted_solutions, desc="Robustness evaluation", unit="solution")
-    ):
+    for rank, sol in enumerate(iterator):
         result = evaluate_elite_robustness(
             elite_id=rank,
             chromosome=sol["chromosome"],
@@ -312,6 +412,9 @@ def evaluate_archive_robustness(
     params_per_basis_function: int,
     distance_metric: Callable[[np.ndarray, np.ndarray], float] = spectral_angle_mapper,
     top_n: int | None = None,
+    *,
+    show_progress: bool = True,
+    progress_desc: str = "Robustness evaluation",
 ) -> list[RobustnessResult]:
     """Evaluate environmental robustness for elites in a MAP-Elites archive.
 
@@ -333,6 +436,10 @@ def evaluate_archive_robustness(
     top_n : int | None
         If set, evaluate only the *top_n* highest-fitness elites.
         ``None`` evaluates the entire archive.
+    show_progress : bool, optional
+        Passed to :func:`evaluate_solutions_robustness`.
+    progress_desc : str, optional
+        Passed to :func:`evaluate_solutions_robustness`.
 
     Returns
     -------
@@ -346,6 +453,8 @@ def evaluate_archive_robustness(
         params_per_basis_function=params_per_basis_function,
         distance_metric=distance_metric,
         top_n=top_n,
+        show_progress=show_progress,
+        progress_desc=progress_desc,
     )
 
 

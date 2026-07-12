@@ -19,7 +19,7 @@ import logging
 from typing import Any
 
 import numpy as np
-from tqdm import trange
+from tqdm import tqdm
 
 from .archive import (
     archive_coverage_pct,
@@ -46,6 +46,10 @@ def run_cma_me(
     restart_patience: int = 30,
     log_interval: int = 5000,
     random_seed: int = 42,
+    *,
+    show_progress: bool = True,
+    progress_desc: str = "CMA-ME",
+    progress_desc_init: str = "CMA-ME archive init",
 ) -> tuple[dict[tuple[int, int], dict[str, Any]], dict[str, Any]]:
     """Run CMA-ME quality-diversity optimisation.
 
@@ -77,6 +81,12 @@ def run_cma_me(
         Print progress every *log_interval* fitness evaluations.
     random_seed : int
         Random seed for reproducibility.
+    show_progress : bool, optional
+        If True, tqdm bars for initial archive seeding and fitness evaluations (ETA, eval/s).
+    progress_desc : str, optional
+        Description for the main evaluation progress bar.
+    progress_desc_init : str, optional
+        Description for the archive initialisation bar.
 
     Returns
     -------
@@ -98,6 +108,8 @@ def run_cma_me(
         grid_resolution=grid_resolution,
         mu_range=mu_range,
         random_seed=random_seed,
+        show_progress=show_progress,
+        progress_desc=progress_desc_init,
     )
 
     # ------------------------------------------------------------------
@@ -166,57 +178,82 @@ def run_cma_me(
         f"(batch_size={evals_per_batch}) for {total_evals:,} total evals..."
     )
 
-    for _round in trange(num_rounds, desc="CMA-ME", unit="round"):
-        if evals_used >= total_evals:
-            break
+    eval_pbar: tqdm | None = None
+    if show_progress:
+        eval_pbar = tqdm(
+            total=total_evals,
+            initial=evals_used,
+            desc=progress_desc,
+            unit="eval",
+            dynamic_ncols=True,
+            mininterval=0.2,
+            smoothing=0.05,
+        )
 
-        for emitter in emitters:
+    try:
+        for _round in range(num_rounds):
             if evals_used >= total_evals:
                 break
 
-            solutions = emitter.ask()
-            fitnesses: list[float] = []
-            improvements: list[float] = []
+            for emitter in emitters:
+                if evals_used >= total_evals:
+                    break
 
-            for solution in solutions:
-                fitness = float(fitness_func(None, solution, 0))
-                fitnesses.append(fitness)
+                solutions = emitter.ask()
+                fitnesses: list[float] = []
+                improvements: list[float] = []
 
-                mu_1, mu_2 = extract_features(solution)
-                key = bin_coordinates(mu_1, mu_2, grid_resolution, mu_range)
+                for solution in solutions:
+                    fitness = float(fitness_func(None, solution, 0))
+                    fitnesses.append(fitness)
 
-                if key not in archive:
-                    imp = fitness
-                    total_new_cells += 1
-                elif fitness > archive[key]["fitness"]:
-                    imp = fitness - archive[key]["fitness"]
-                else:
-                    imp = 0.0
+                    mu_1, mu_2 = extract_features(solution)
+                    key = bin_coordinates(mu_1, mu_2, grid_resolution, mu_range)
 
-                if imp > 0:
-                    archive[key] = {
-                        "chromosome": solution.copy(),
-                        "fitness": fitness,
-                        "mu_1": mu_1,
-                        "mu_2": mu_2,
-                    }
-                    total_improvements += 1
+                    if key not in archive:
+                        imp = fitness
+                        total_new_cells += 1
+                    elif fitness > archive[key]["fitness"]:
+                        imp = fitness - archive[key]["fitness"]
+                    else:
+                        imp = 0.0
 
-                improvements.append(imp)
+                    if imp > 0:
+                        archive[key] = {
+                            "chromosome": solution.copy(),
+                            "fitness": fitness,
+                            "mu_1": mu_1,
+                            "mu_2": mu_2,
+                        }
+                        total_improvements += 1
 
-            emitter.tell(solutions, improvements, fitnesses)
-            evals_used += len(solutions)
+                    improvements.append(imp)
 
-            if emitter.converged:
-                archive_list = list(archive.values())
-                elite = archive_list[rng.integers(len(archive_list))]
-                emitter.restart(elite["chromosome"].copy())
+                emitter.tell(solutions, improvements, fitnesses)
+                batch_n = len(solutions)
+                evals_used += batch_n
+                if eval_pbar is not None:
+                    eval_pbar.update(batch_n)
+                    best = max(ind["fitness"] for ind in archive.values())
+                    eval_pbar.set_postfix(
+                        archive=len(archive),
+                        best=f"{best:.2f}",
+                        refresh=False,
+                    )
 
-        if evals_used - last_log_evals >= log_interval:
-            _snapshot()
-            last_log_evals = evals_used
+                if emitter.converged:
+                    archive_list = list(archive.values())
+                    elite = archive_list[rng.integers(len(archive_list))]
+                    emitter.restart(elite["chromosome"].copy())
 
-    _snapshot()
+            if evals_used - last_log_evals >= log_interval:
+                _snapshot()
+                last_log_evals = evals_used
+
+        _snapshot()
+    finally:
+        if eval_pbar is not None:
+            eval_pbar.close()
 
     # ------------------------------------------------------------------
     # 6. Collect metadata

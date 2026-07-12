@@ -1,8 +1,11 @@
 """MAP-Elites archive: feature extraction, binning, and initialisation."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import numpy as np
+from tqdm import tqdm
 
 
 def extract_features(chromosome: np.ndarray) -> tuple[float, float]:
@@ -83,6 +86,9 @@ def initialize_archive(
     grid_resolution: int,
     mu_range: tuple[float, float],
     random_seed: int = 42,
+    *,
+    show_progress: bool = False,
+    progress_desc: str = "MAP-Elites archive init",
 ) -> dict[tuple[int, int], dict[str, Any]]:
     """Seed the archive with uniformly random solutions.
 
@@ -100,6 +106,10 @@ def initialize_archive(
         Range for mu values.
     random_seed : int
         Random seed.
+    show_progress : bool, optional
+        If True, show a tqdm bar (ETA, rate) while seeding.
+    progress_desc : str, optional
+        Bar description when *show_progress* is True.
 
     Returns
     -------
@@ -109,7 +119,17 @@ def initialize_archive(
     np.random.seed(random_seed)
     archive: dict[tuple[int, int], dict[str, Any]] = {}
 
-    print(f"Initializing archive with {num_initial} random solutions...")
+    pbar: tqdm | None = None
+    if show_progress:
+        pbar = tqdm(
+            total=num_initial,
+            desc=progress_desc,
+            unit="seed",
+            dynamic_ncols=True,
+            mininterval=0.2,
+        )
+    else:
+        print(f"Initializing archive with {num_initial} random solutions...")
 
     for i in range(num_initial):
         chromosome = np.array([np.random.uniform(g["low"], g["high"]) for g in gene_space])
@@ -127,8 +147,14 @@ def initialize_archive(
                 "mu_2": mu_2,
             }
 
-        if (i + 1) % 100 == 0:
+        if pbar is not None:
+            pbar.update(1)
+            pbar.set_postfix(archive=len(archive), refresh=False)
+        elif (i + 1) % 100 == 0:
             print(f"  Initialized {i + 1}/{num_initial} solutions, archive size: {len(archive)}")
+
+    if pbar is not None:
+        pbar.close()
 
     total_reachable = reachable_cell_count(grid_resolution)
     print(f"Archive initialized: {len(archive)}/{total_reachable} reachable cells filled")

@@ -1,8 +1,8 @@
 """
-YAML experiment configuration and wiring for GA hyperparameter tuning.
+YAML experiment configuration and wiring for optimisation runs.
 
 This module loads experiment definitions and builds search space, gene space,
-and fitness callables used by :mod:`lwi_microbolometer_design.ga.tuning`.
+and fitness callables used by any optimiser (GA, MAP-Elites, CMA-ME, tuning).
 """
 
 from __future__ import annotations
@@ -134,17 +134,27 @@ def create_fitness_evaluator_from_experiment(
 ) -> Callable[[object, np.ndarray, int], float]:
     """Create fitness evaluator from experiment configuration.
 
+    Supports single-condition and multi-condition (robust) evaluation.
+    When the YAML ``data`` section specifies lists for ``temperature_kelvin``,
+    ``atmospheric_distance_ratio``, or ``air_refractive_index``, the loader
+    produces multiple :class:`SceneConfig` objects that are all passed to
+    :class:`MinDissimilarityFitnessEvaluator`.
+
+    The aggregation strategy is read from
+    ``experiment.data["robustness_aggregation"]`` (``"min"`` or ``"mean"``).
+    If not specified, defaults to ``"single"`` for one condition or ``"min"``
+    for multiple conditions.
+
     Parameters
     ----------
     experiment : ExperimentConfig
-        Experiment configuration
+        Experiment configuration.
 
     Returns
     -------
     Callable
-        Fitness function compatible with PyGAD
+        Fitness function compatible with PyGAD.
     """
-    # Load data
     loaded = load_substance_atmosphere_data(
         spectral_data_file=Path(experiment.data["spectral_data_file"]),
         air_transmittance_file=Path(experiment.data["air_transmittance_file"]),
@@ -153,19 +163,26 @@ def create_fitness_evaluator_from_experiment(
         air_refractive_index=experiment.data.get("air_refractive_index", 1.0),
     )
 
-    # Handle multi-condition data (should be single condition for tuning)
     if isinstance(loaded, list):
-        if len(loaded) > 1:
-            logger.warning("Multi-condition data detected, using first condition only")
-        scene = loaded[0]
+        scenes = loaded
     else:
-        scene = loaded
+        scenes = [loaded]
+
+    aggregation = experiment.data.get("robustness_aggregation", "single")
+
+    if len(scenes) > 1:
+        logger.info(
+            "Multi-condition evaluation: %d scenes, aggregation=%r",
+            len(scenes),
+            aggregation,
+        )
 
     evaluator = MinDissimilarityFitnessEvaluator(
-        scene=scene,
+        scene=scenes if len(scenes) > 1 else scenes[0],
         parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
         params_per_basis_function=experiment.sensor["params_per_basis_function"],
         distance_metric=spectral_angle_mapper,
+        aggregation=aggregation,
     )
 
     return evaluator.fitness_func
