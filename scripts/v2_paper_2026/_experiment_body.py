@@ -6,15 +6,17 @@ from pathlib import Path
 
 import numpy as np
 
+from _paths import project_root
+
 from lwi_microbolometer_design.data import SceneConfig, load_substance_atmosphere_data
 
 
 def spectral_data_path() -> Path:
-    return Path("data/Test 3 - 4 White Powers/white_powders_with_labels.xlsx")
+    return project_root() / Path("data/Test 3 - 4 White Powers/white_powders_with_labels.xlsx")
 
 
 def air_transmittance_path() -> Path:
-    return Path("data/Test 3 - 4 White Powers/Air transmittance.xlsx")
+    return project_root() / Path("data/Test 3 - 4 White Powers/Air transmittance.xlsx")
 
 
 def load_nominal_scene() -> SceneConfig:

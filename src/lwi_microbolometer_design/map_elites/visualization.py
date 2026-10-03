@@ -21,7 +21,7 @@ from lwi_microbolometer_design.analysis import (
     vat_reorder,
 )
 
-from .archive import extract_features, reachable_cell_count
+from lwi_microbolometer_design.map_elites.archive import extract_features, reachable_cell_count
 
 logger = logging.getLogger(__name__)
 
@@ -407,7 +407,7 @@ def plot_top_individual_curves(
     fs_axis = 14 * fontsize_scale
     fs_title = 16 * fontsize_scale
     ax.set_xlabel("Wavelength (\u00b5m)", fontsize=fs_axis)
-    ax.set_ylabel("Absorptivity", fontsize=fs_axis)
+    ax.set_ylabel("Spectral Responsivity (dimensionless)", fontsize=fs_axis)
     _tick = tick_labelsize if tick_labelsize is not None else max(5.0, 0.78 * fs_axis)
     ax.tick_params(axis="x", which="major", labelsize=_tick)
     # Stacked curves use arbitrary vertical offsets; numeric y ticks are misleading.
@@ -558,7 +558,8 @@ def plot_polished_elites(
     Parameters
     ----------
     initial_elites : list[dict]
-        Pre-polish elite dicts (parallel to *polished_elites*).
+        Pre-polish elite dicts, retained for caller compatibility. Labels use
+        each polish record's own initial_fitness, independent of completion order.
     polished_elites : list[dict]
         Post-polish result dicts.
     wavelengths : np.ndarray
@@ -574,11 +575,9 @@ def plot_polished_elites(
     """
     sorted_indices = np.argsort([e["polished_fitness"] for e in polished_elites])[::-1]
     sorted_polished = [polished_elites[i] for i in sorted_indices]
-    sorted_initial = [initial_elites[i] for i in sorted_indices]
 
     top_n_actual = min(top_n, len(sorted_polished))
     sorted_polished = sorted_polished[:top_n_actual]
-    sorted_initial = sorted_initial[:top_n_actual]
 
     num_individuals = len(sorted_polished)
     fig, ax = plt.subplots(figsize=(14, 10))
@@ -586,7 +585,7 @@ def plot_polished_elites(
     y_mins: list[float] = []
     y_maxs: list[float] = []
 
-    for i, (polished, _initial) in enumerate(zip(sorted_polished, sorted_initial, strict=False)):
+    for i, polished in enumerate(sorted_polished):
         chromosome = polished["polished_chromosome"]
         gaussian_params = [(chromosome[j], chromosome[j + 1]) for j in range(0, len(chromosome), 2)]
         basis_functions = parameters_to_curves(gaussian_params, wavelengths)
@@ -610,7 +609,7 @@ def plot_polished_elites(
     else:
         set_tight_ylim_stacked_spectra(ax, 0.0, 1.0)
     ax.set_xlabel("Wavelength (\u00b5m)", fontsize=14)
-    ax.set_ylabel("Absorptivity (Offset Applied)", fontsize=14)
+    ax.set_ylabel("Spectral Responsivity (scaled, offset applied)", fontsize=14)
     ax.set_title(
         f"{title_prefix}: Top {top_n_actual} Refined Solutions",
         fontsize=16,
@@ -619,12 +618,12 @@ def plot_polished_elites(
     ax.grid(True, alpha=0.3)
 
     trans_axes_x_data_y = blended_transform_factory(ax.transAxes, ax.transData)
-    for i, (polished, initial) in enumerate(zip(sorted_polished, sorted_initial, strict=False)):
+    for i, polished in enumerate(sorted_polished):
         y_base = (num_individuals - 1 - i) * offset_step
         ax.text(
             0.01,
             y_base,
-            f"Rank {i + 1}: {initial['fitness']:.2f} \u2192 {polished['polished_fitness']:.2f} "
+            f"Rank {i + 1}: {polished['initial_fitness']:.2f} \u2192 {polished['polished_fitness']:.2f} "
             f"(+{polished['fitness_gain']:.2f})",
             transform=trans_axes_x_data_y,
             fontsize=8,

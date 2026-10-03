@@ -30,10 +30,10 @@ from lwi_microbolometer_design.data.scene_config import SceneConfig
 from lwi_microbolometer_design.data.substance_atmosphere_data import load_substance_atmosphere_data
 from lwi_microbolometer_design.simulation import gaussian_parameters_to_unit_amplitude_curves
 
-from .advanced_ga import AdvancedGA
-from .experiment import ExperimentConfig
-from .ga_configuration import create_ga_config
-from .mutations import diversity_preserving_mutation
+from lwi_microbolometer_design.ga.advanced_ga import AdvancedGA
+from lwi_microbolometer_design.ga.experiment import ExperimentConfig
+from lwi_microbolometer_design.ga.ga_configuration import create_ga_config
+from lwi_microbolometer_design.ga.mutations import diversity_preserving_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -214,13 +214,14 @@ def _plot_fitness_evolution(result: dict[str, np.ndarray | list[float]], output_
     """Plot fitness evolution over generations."""
     plt.figure(figsize=(12, 6))
     plt.plot(result["best_fitness_history"], label="Best Fitness", linewidth=2, color="#1f77b4")
-    plt.plot(
-        result["mean_fitness_history"],
-        label="Mean Fitness",
-        linewidth=1.5,
-        color="#ff7f0e",
-        linestyle="--",
-    )
+    if len(result.get("mean_fitness_history", [])) > 0:
+        plt.plot(
+            result["mean_fitness_history"],
+            label="Mean Fitness",
+            linewidth=1.5,
+            color="#ff7f0e",
+            linestyle="--",
+        )
     plt.xlabel("Generation", fontsize=14)
     plt.ylabel("Fitness Score", fontsize=14)
     plt.title("GA Fitness Evolution", fontsize=16, fontweight="bold")
@@ -321,7 +322,7 @@ def plot_top_sensor_designs(
             )
 
     plt.xlabel("Wavelength (µm)", fontsize=14)
-    plt.ylabel("Absorptivity (Offset Applied)", fontsize=14)
+    plt.ylabel("Spectral Responsivity (scaled, offset applied)", fontsize=14)
     plt.title(
         f"Top 10 Sensor Designs (Fitness ≥ {fitness_threshold})", fontsize=16, fontweight="bold"
     )
@@ -399,7 +400,7 @@ def plot_best_design(
         )
 
     plt.xlabel("Wavelength (µm)", fontsize=14)
-    plt.ylabel("Absorptivity", fontsize=14)
+    plt.ylabel("Spectral Responsivity (dimensionless)", fontsize=14)
     plt.title(f"Best Sensor Design (Fitness: {best_fitness:.2f})", fontsize=16, fontweight="bold")
     plt.legend(fontsize=12)
     plt.grid(True, alpha=0.3)
@@ -455,7 +456,7 @@ def plot_ivat_analysis(
     all_distances = all_distances[all_distances > 0]
 
     if len(all_distances) == 0:
-        logger.warning("No valid distances found for IVAT analysis")
+        logger.info("All optimal-pairing distances are zero; no cluster separation to plot")
         return
 
     global_vmin = np.percentile(all_distances, 5)
@@ -651,7 +652,7 @@ def visualize_top_configurations(
         Basis curve generator for design plots (default: Gaussian unit-amplitude curves).
     """
     # Local import: ``tuning`` imports this module at package load time.
-    from .tuning import GenerationTracker
+    from lwi_microbolometer_design.ga.tuning import GenerationTracker
 
     logger.info("\n=== Generating Visualizations for Top %s Configurations ===", top_k)
 

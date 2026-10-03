@@ -2,7 +2,14 @@
 
 import numpy as np
 
-from .blackbody import blackbody_emit
+from lwi_microbolometer_design.simulation.blackbody import blackbody_emit
+from lwi_microbolometer_design.simulation._validation import (
+    emissivity_matrix,
+    positive_scalar,
+    spectral_vector,
+    validate_transmittance,
+    validate_wavelengths,
+)
 
 
 def simulate_sensor_output(
@@ -23,7 +30,7 @@ def simulate_sensor_output(
     Parameters
     ----------
     wavelengths : np.ndarray
-        Array of wavelength values in micrometers (µm), shape (d, 1)
+        Array of wavelength values in micrometers (µm), shape (d,) or (d, 1)
     substances_emissivity : np.ndarray
         Emissivity spectra of substances, shape (d, n) where n is number of substances
     basis_functions : np.ndarray
@@ -35,12 +42,13 @@ def simulate_sensor_output(
     air_refractive_index : float
         Refractive index of the surrounding air. Affects blackbody emission (scales with n²).
     air_transmittance : np.ndarray
-        Transmission coefficients of air, shape (d, 1)
+        Transmission coefficients of air, shape (d,) or (d, 1)
 
     Returns
     -------
     np.ndarray
-        Sensor output values, shape (m, n) where m is number of basis functions
+        Integrated model response in W/(m²·sr) for dimensionless basis functions,
+        shape (m, n) where m is number of basis functions
         and n is number of substances
 
     Notes
@@ -49,55 +57,41 @@ def simulate_sensor_output(
     1. Calculate blackbody emission at given temperature
     2. Apply atmospheric transmission effects
     3. Multiply by substance emissivity
-    4. Convolve with sensor basis functions
-    5. Integrate over wavelength to get sensor response
+    4. Weight by the sensor basis functions
+    5. Integrate over vacuum wavelength in µm using the trapezoidal rule.
+
+    Distance ratio must be finite and nonnegative. At ratio zero, attenuation
+    is one at every wavelength (including zero-transmission samples). Finite
+    signed measured emissivity is preserved without clipping; negative values
+    do not establish physically valid passive radiance. Basis functions must
+    be finite and aligned, but may be signed for custom linear response models.
     """
-    # Ensure all inputs are NumPy arrays
-    if not isinstance(wavelengths, np.ndarray):
-        wavelengths = np.array(wavelengths)
-    if not isinstance(substances_emissivity, np.ndarray):
-        substances_emissivity = np.array(substances_emissivity)
-    if not isinstance(basis_functions, np.ndarray):
-        basis_functions = np.array(basis_functions)
-    if not isinstance(air_transmittance, np.ndarray):
-        air_transmittance = np.array(air_transmittance)
+    wl = spectral_vector(wavelengths, "wavelengths")
+    validate_wavelengths(wl)
+    em = np.asarray(substances_emissivity, dtype=np.float64)
+    if em.ndim == 1:
+        em = em[:, None]
+    em = emissivity_matrix(em, wl.size)
+    basis = np.asarray(basis_functions, dtype=np.float64)
+    if basis.ndim != 2 or basis.shape[0] != wl.size or basis.shape[1] == 0:
+        raise ValueError("basis_functions must have shape (d, m) aligned with wavelengths.")
+    if not np.all(np.isfinite(basis)):
+        raise ValueError("basis_functions must be finite.")
+    air = spectral_vector(air_transmittance, "air_transmittance")
+    if air.size != wl.size:
+        raise ValueError("air_transmittance length must match wavelengths.")
+    validate_transmittance(air)
+    ratio = positive_scalar(
+        atmospheric_distance_ratio, "atmospheric_distance_ratio", allow_zero=True
+    )
+    radiance = blackbody_emit(wl, temperature_k, air_refractive_index)
 
-    # Reshape inputs to enforce correct dimensions
-    if wavelengths.ndim == 1:
-        wavelengths = wavelengths.reshape(-1, 1)  # Ensure shape is (d, 1)
-    if air_transmittance.ndim == 1:
-        air_transmittance = air_transmittance.reshape(-1, 1)  # Ensure shape is (d, 1)
-
-    # Calculate blackbody emission for the given temperature and air refractive index
-    bb_emit = blackbody_emit(wavelengths, temperature_k, air_refractive_index)
-    if bb_emit.ndim == 1:
-        bb_emit = bb_emit.reshape(-1, 1)  # Ensure shape is (d, 1)
-
-    # Calculate atmospheric transmission factor
-    tau_air = air_transmittance**atmospheric_distance_ratio
-
-    # Check if substances_emissivity is for one or multiple substances
-    if substances_emissivity.ndim == 1:
-        substances_emissivity = substances_emissivity.reshape(-1, 1)  # Shape = (d, 1)
-
-    # Number of substances and basis functions
-    n = substances_emissivity.shape[1]  # Number of substances
-    m = basis_functions.shape[1]  # Number of basis functions
-
-    # Initialize the output matrix (m x n)
-    sensor_outputs = np.zeros((m, n))
-
-    # Compute sensor outputs for each substance
-    for i in range(n):
-        # Extract the emissivity spectrum for the current substance
-        emissivity_curve = substances_emissivity[:, i : i + 1]  # Shape = (d, 1)
-
-        # Compute the absorption spectrum
-        abso_spec = tau_air * bb_emit * emissivity_curve * basis_functions  # Shape = (d, m)
-
-        # Integrate over the wavelengths to get sensor outputs
-        sensor_outputs[:, i] = np.trapezoid(
-            abso_spec, wavelengths.flatten(), axis=0
-        )  # Shape = (m,)
-
-    return sensor_outputs
+    # Nonuniform trapezoid weights preserve wavelength-density integration.
+    dx = np.diff(wl)
+    weights = np.empty_like(wl)
+    weights[0], weights[-1] = dx[0] / 2, dx[-1] / 2
+    weights[1:-1] = (dx[:-1] + dx[1:]) / 2
+    outputs = basis.T @ ((weights * air**ratio * radiance)[:, None] * em)
+    if not np.all(np.isfinite(outputs)):
+        raise ValueError("Sensor integration produced nonfinite outputs.")
+    return outputs

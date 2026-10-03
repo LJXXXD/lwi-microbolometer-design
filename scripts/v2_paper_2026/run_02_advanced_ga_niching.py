@@ -54,8 +54,8 @@ def main() -> None:
     if args.quick:
         num_generations, sol_per_pop = _budgets.quickrun_ga_baseline()
     else:
-        num_generations = _budgets.GA_NUM_GENERATIONS_STANDARD
-        sol_per_pop = _budgets.GA_SOL_PER_POP_STANDARD
+        num_generations = _budgets.GA_NUM_GENERATIONS_ADVANCED
+        sol_per_pop = _budgets.GA_SOL_PER_POP_ADVANCED
 
     out_dir = _paths.step_output_dir(_paths.STEP_ADVANCED_GA)
     tqdm.write(

@@ -13,6 +13,11 @@ from typing import Any
 
 import numpy as np
 
+from lwi_microbolometer_design.analysis.distance_metrics import (
+    _sam_distance_matrix,
+    spectral_angle_mapper,
+)
+
 # Internal import for optimal pairing (hidden from users)
 from lwi_microbolometer_design.analysis.optimal_pairing_distance import (
     calculate_optimal_pairing_distance,
@@ -31,7 +36,7 @@ def _extract_data_from_items(
             axis = 0  # Default: compare along first dimension
 
         # Validate axis is within array dimensions
-        if axis >= items.ndim:
+        if not -items.ndim <= axis < items.ndim:
             raise ValueError(f"axis={axis} is out of bounds for array with {items.ndim} dimensions")
 
         # Extract items along the specified axis
@@ -75,6 +80,8 @@ def _validate_optimal_pairing_params(
 
     if params_per_group is None:
         raise ValueError("params_per_group must be provided when use_optimal_pairing=True")
+    if params_per_group <= 0:
+        raise ValueError("params_per_group must be positive.")
     if metric is None and distance_func is None:
         raise ValueError(
             "Either metric or distance_func must be provided when use_optimal_pairing=True"
@@ -92,28 +99,18 @@ def _compute_optimal_pairing_distances(
     n = len(data)
     dist_matrix = np.zeros((n, n))
 
+    groups = []
+    for item in data:
+        array = np.asarray(item)
+        if array.ndim != 1 or array.size % params_per_group:
+            raise ValueError(
+                f"Each item must be a 1D chromosome divisible by params_per_group ({params_per_group})"
+            )
+        groups.append(array.reshape(-1, params_per_group))
+
     for i in range(n):
         for j in range(i + 1, n):
-            # Reshape into groups (ensure they're arrays)
-            item_i = data[i]
-            item_j = data[j]
-            # Convert to arrays with explicit type checking
-            array_i = item_i if isinstance(item_i, np.ndarray) else np.array(item_i)
-            array_j = item_j if isinstance(item_j, np.ndarray) else np.array(item_j)
-
-            # Validate array length is divisible by params_per_group
-            if len(array_i) % params_per_group != 0 or len(array_j) % params_per_group != 0:
-                raise ValueError(
-                    f"Array lengths ({len(array_i)}, {len(array_j)}) must be "
-                    f"divisible by params_per_group ({params_per_group})"
-                )
-
-            groups_i = array_i.reshape(-1, params_per_group)
-            groups_j = array_j.reshape(-1, params_per_group)
-
-            # Convert to list of tuples for optimal pairing
-            items_i = [tuple(group) for group in groups_i]
-            items_j = [tuple(group) for group in groups_j]
+            items_i, items_j = groups[i], groups[j]
 
             # Compute optimal pairing distance
             if metric is not None:
@@ -144,12 +141,16 @@ def _compute_optimal_pairing_distances(
 def _compute_standard_distances(data: list[Any], distance_func: Callable) -> np.ndarray:
     """Compute distance matrix using standard distance function."""
     n = len(data)
+    if distance_func is spectral_angle_mapper and n >= 2:
+        return _sam_distance_matrix(np.stack(data))
     dist_matrix = np.zeros((n, n))
 
     # Compute upper triangle only (diagonal stays 0)
     for i in range(n):
         for j in range(i + 1, n):
-            dist = distance_func(data[i], data[j])
+            dist = float(distance_func(data[i], data[j]))
+            if not np.isfinite(dist):
+                raise ValueError("distance_func must return finite scalar distances.")
             dist_matrix[i, j] = dist
             dist_matrix[j, i] = dist
 
@@ -196,7 +197,7 @@ def compute_distance_matrix(
         - axis=0 (default): Compare along first dimension (e.g., rows for 2D)
         - axis=1: Compare along second dimension (e.g., columns for 2D)
         - axis=N: Compare along Nth dimension (requires array.ndim > N)
-        Ignored if items is a list.
+        Negative axes are supported. Rejects axis when items is a list.
     use_optimal_pairing : bool, default=False
         If True, uses optimal pairing (Hungarian algorithm) to match groups
         within each array before computing distances. Requires params_per_group.

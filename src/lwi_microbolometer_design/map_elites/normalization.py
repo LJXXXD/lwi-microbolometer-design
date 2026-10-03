@@ -28,11 +28,15 @@ class UnitCubeScaler:
         """Build a scaler from lower/upper bound vectors."""
         lower = np.asarray(bounds_low, dtype=float)
         upper = np.asarray(bounds_high, dtype=float)
+        if lower.ndim != 1 or lower.size == 0 or lower.shape != upper.shape:
+            raise ValueError(
+                "Lower and upper bounds must be nonempty 1D vectors of identical shape."
+            )
+        if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)):
+            raise ValueError("Gene bounds must be finite.")
         span = upper - lower
-        if lower.shape != upper.shape:
-            raise ValueError("Lower and upper bounds must have identical shape.")
-        if np.any(span <= 0.0):
-            raise ValueError("Every gene bound must satisfy high > low.")
+        if not np.all(np.isfinite(span)) or np.any(span <= 0.0):
+            raise ValueError("Every gene bound must have a finite span with high > low.")
         return cls(lower=lower, upper=upper, span=span)
 
     @property

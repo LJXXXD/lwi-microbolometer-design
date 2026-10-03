@@ -86,7 +86,9 @@ def run_single_config(
 
     def on_generation(ga_instance) -> None:
         """Track diversity per generation."""
-        diversity = calculate_population_diversity(ga_instance.population)
+        diversity = calculate_population_diversity(
+            ga_instance.population, ga_instance.niching_config
+        )
         diversity_history.append(diversity)
 
     # Create GA configuration

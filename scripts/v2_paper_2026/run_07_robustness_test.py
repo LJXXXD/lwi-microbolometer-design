@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v2_paper_2026 step 07: Phase 1 environmental robustness on the hero MAP-Elites+HC archive."""
+"""v2_paper_2026 step 07: Phase 1 environmental robustness on the pre-HC QD archive from step 05."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def main() -> None:
         type=Path,
         default=None,
         help=(
-            "QD archive pickle (default: step 05 MAP-Elites+HC map_elites_archive.pkl; "
+            "QD archive pickle (default: step 05 pre-HC QD map_elites_archive.pkl; "
             "override for e.g. step 04/06 pickles)."
         ),
     )

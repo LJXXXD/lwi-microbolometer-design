@@ -12,7 +12,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from .distance_matrix import compute_distance_matrix
+from lwi_microbolometer_design.analysis.distance_matrix import compute_distance_matrix
 
 
 def _reorder_families_by_fitness(labels: np.ndarray, fitnesses: Sequence[float]) -> np.ndarray:
@@ -39,12 +39,10 @@ def graph_single_linkage_from_distance_matrix(dist: np.ndarray, edge_max: float)
     parent = np.arange(n, dtype=np.int64)
 
     def find(x: int) -> int:
-        p = int(parent[x])
-        if p != x:
-            root = find(p)
-            parent[x] = root
-            return root
-        return p
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = int(parent[x])
+        return x
 
     def union(i: int, j: int) -> None:
         ri, rj = find(i), find(j)

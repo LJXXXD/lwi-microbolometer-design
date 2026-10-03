@@ -199,6 +199,7 @@ def main() -> None:
         num_runs=num_runs_per_config,
         fitness_threshold=fitness_threshold,
         max_workers=max_workers,
+        random_seed_base=random_seed_base,
     )
 
     # Generate configurations to check count

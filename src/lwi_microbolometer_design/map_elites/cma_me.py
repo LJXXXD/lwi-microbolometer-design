@@ -21,14 +21,16 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from .archive import (
+from lwi_microbolometer_design.map_elites.archive import (
+    _evaluate_fitness,
     archive_coverage_pct,
     bin_coordinates,
     extract_features,
     initialize_archive,
     reachable_cell_count,
 )
-from .emitters import OptimizingEmitter
+from lwi_microbolometer_design.map_elites.emitters import OptimizingEmitter
+from lwi_microbolometer_design.map_elites.normalization import UnitCubeScaler
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,8 @@ def run_cma_me(
     num_initial : int
         Random solutions used to seed the archive.
     total_evals : int
-        Total fitness evaluation budget (including initialisation).
+        Exact fitness evaluation budget (including initialisation). A final
+        partial batch updates the archive but does not update CMA-ES.
     num_emitters : int
         Number of concurrent :class:`OptimizingEmitter` instances.
     batch_size : int | None
@@ -95,6 +98,18 @@ def run_cma_me(
         ``(x_bin, y_bin) -> {"chromosome", "fitness", "mu_1", "mu_2"}``
         and *metadata* contains run statistics and convergence history.
     """
+    if (
+        not isinstance(total_evals, (int, np.integer))
+        or not isinstance(num_initial, (int, np.integer))
+        or not 1 <= num_initial <= total_evals
+    ):
+        raise ValueError("Require 1 <= num_initial <= total_evals.")
+    if num_emitters < 1:
+        raise ValueError("num_emitters must be positive.")
+    sigma0 = float(initial_sigma)
+    if not 0.0 < sigma0 <= 1.0:
+        raise ValueError("initial_sigma must lie in (0, 1] when CMA uses normalized genes.")
+    UnitCubeScaler.from_bounds([g["low"] for g in gene_space], [g["high"] for g in gene_space])
     rng = np.random.default_rng(random_seed)
     np.random.seed(random_seed)
 
@@ -117,9 +132,6 @@ def run_cma_me(
     # ------------------------------------------------------------------
     bounds_low = [g["low"] for g in gene_space]
     bounds_high = [g["high"] for g in gene_space]
-    sigma0 = float(initial_sigma)
-    if not 0.0 < sigma0 <= 1.0:
-        raise ValueError("initial_sigma must lie in (0, 1] when CMA uses normalized genes.")
 
     # ------------------------------------------------------------------
     # 3. Create emitters, each seeded from a random archive elite
@@ -141,9 +153,6 @@ def run_cma_me(
         )
 
     evals_per_batch = emitters[0].batch_size
-    evals_per_round = evals_per_batch * num_emitters
-    remaining_evals = total_evals - num_initial
-    num_rounds = max(1, remaining_evals // evals_per_round)
 
     # ------------------------------------------------------------------
     # 4. Tracking
@@ -191,26 +200,24 @@ def run_cma_me(
         )
 
     try:
-        for _round in range(num_rounds):
-            if evals_used >= total_evals:
-                break
-
+        while evals_used < total_evals:
             for emitter in emitters:
                 if evals_used >= total_evals:
                     break
 
-                solutions = emitter.ask()
+                solutions = emitter.ask()[: total_evals - evals_used]
                 fitnesses: list[float] = []
                 improvements: list[float] = []
 
                 for solution in solutions:
-                    fitness = float(fitness_func(None, solution, 0))
+                    fitness = _evaluate_fitness(fitness_func, solution)
                     fitnesses.append(fitness)
 
                     mu_1, mu_2 = extract_features(solution)
                     key = bin_coordinates(mu_1, mu_2, grid_resolution, mu_range)
 
-                    if key not in archive:
+                    is_new_cell = key not in archive
+                    if is_new_cell:
                         imp = fitness
                         total_new_cells += 1
                     elif fitness > archive[key]["fitness"]:
@@ -218,7 +225,7 @@ def run_cma_me(
                     else:
                         imp = 0.0
 
-                    if imp > 0:
+                    if is_new_cell or imp > 0:
                         archive[key] = {
                             "chromosome": solution.copy(),
                             "fitness": fitness,
@@ -229,8 +236,9 @@ def run_cma_me(
 
                     improvements.append(imp)
 
-                emitter.tell(solutions, improvements, fitnesses)
                 batch_n = len(solutions)
+                if batch_n == emitter.batch_size:
+                    emitter.tell(solutions, improvements, fitnesses)
                 evals_used += batch_n
                 if eval_pbar is not None:
                     eval_pbar.update(batch_n)

@@ -22,7 +22,7 @@ HC_MAX_WORKERS_DEFAULT = min(_cpu_count(), HC_MAX_WORKERS_CAP)
 
 # --- Production-oriented defaults (hours + strong CPU). Override via CLI / env. ---
 
-# Step 01 (standard GA) — tuned up vs earlier suite (step 02 uses separate ADVANCED constants).
+# Steps 01 and 02 have independently configurable budgets.
 GA_NUM_GENERATIONS_STANDARD = int(os.environ.get("PRES_GA_GENERATIONS", "5000"))
 GA_SOL_PER_POP_STANDARD = int(os.environ.get("PRES_GA_POP", "240"))
 GA_PARENTS_MATING_FRACTION_STANDARD = float(
@@ -57,7 +57,7 @@ MAP_ELITES_TOTAL_FITNESS_EVALS = int(
 MAP_ELITES_NUM_INITIAL = int(
     os.environ.get("PRES_MAP_ELITES_INITIAL", str(GA_SOL_PER_POP_STANDARD))
 )
-MAP_ELITES_ITERATIONS = max(0, MAP_ELITES_TOTAL_FITNESS_EVALS - MAP_ELITES_NUM_INITIAL)
+MAP_ELITES_ITERATIONS = MAP_ELITES_TOTAL_FITNESS_EVALS - MAP_ELITES_NUM_INITIAL
 
 # Step 06: same nominal fitness-call budget as steps 01 / 04 (single-scene evals).
 CMA_ME_TOTAL_EVALS = int(
@@ -69,7 +69,8 @@ CMA_ME_TOTAL_EVALS = int(
 CMA_ME_NUM_EMITTERS = int(os.environ.get("PRES_CMA_ME_EMITTERS", "6"))
 CMA_ME_NUM_INITIAL = int(os.environ.get("PRES_CMA_ME_INITIAL", str(GA_SOL_PER_POP_STANDARD)))
 
-# Minimax: each fitness call evaluates all grid conditions (~25 forward passes).
+# Step 08 minimax MAP-Elites: each fitness call evaluates all grid conditions.
+# The exported constant name is retained for existing callers.
 MINIMAX_CMA_ME_TOTAL_EVALS = int(os.environ.get("PRES_MINIMAX_EVALS", "200000"))
 MINIMAX_BUDGET_MULTIPLIER = float(os.environ.get("PRES_MINIMAX_MULT", "1.0"))
 
@@ -99,6 +100,15 @@ ROBUSTNESS_REFRACTIVE_INDICES: tuple[float, ...] = (1.0,)
 HC_MAX_ELITES = int(os.environ.get("PRES_HC_MAX_ELITES", "160"))
 HC_FITNESS_THRESHOLD = float(os.environ.get("PRES_HC_THRESHOLD", "45.0"))
 HC_MAX_WORKERS = int(os.environ.get("PRES_HC_WORKERS", str(HC_MAX_WORKERS_DEFAULT)))
+
+
+def map_elites_budget() -> tuple[int, int]:
+    """Return mutation/seed counts without exceeding the configured total."""
+    if not 0 <= MAP_ELITES_NUM_INITIAL <= MAP_ELITES_TOTAL_FITNESS_EVALS:
+        raise ValueError("Require 0 <= PRES_MAP_ELITES_INITIAL <= PRES_MAP_ELITES_TOTAL_EVALS.")
+    if MAP_ELITES_TOTAL_FITNESS_EVALS < 1:
+        raise ValueError("PRES_MAP_ELITES_TOTAL_EVALS must be positive.")
+    return MAP_ELITES_ITERATIONS, MAP_ELITES_NUM_INITIAL
 
 
 def add_quickrun_arg(parser: argparse.ArgumentParser) -> None:

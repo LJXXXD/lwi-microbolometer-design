@@ -128,39 +128,41 @@ def main() -> None:
     polished_results: list[dict[str, Any]] = []
     max_workers = min(num_elites_to_polish, mp.cpu_count())
 
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_elite = {
-            executor.submit(
-                polish_single_elite_hc,
-                elite_id=i,
-                chromosome=elite["chromosome"],
-                initial_fitness=elite["fitness"],
-                fitness_func=fitness_func,
-                gene_space=gene_space,
-                num_iterations=5000,
-                mutation_sigma=0.05,
-                mutation_probability=0.2,
-                adaptive_iterations=True,
-            ): (i, elite)
-            for i, elite in enumerate(top_elites_initial)
-        }
+    if num_elites_to_polish > 0:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            future_to_elite = {
+                executor.submit(
+                    polish_single_elite_hc,
+                    elite_id=i,
+                    random_seed=42 + i,
+                    chromosome=elite["chromosome"],
+                    initial_fitness=elite["fitness"],
+                    fitness_func=fitness_func,
+                    gene_space=gene_space,
+                    num_iterations=5000,
+                    mutation_sigma=0.05,
+                    mutation_probability=0.2,
+                    adaptive_iterations=True,
+                ): (i, elite)
+                for i, elite in enumerate(top_elites_initial)
+            }
 
-        completed = 0
-        for future in as_completed(future_to_elite):
-            elite_id, elite = future_to_elite[future]
-            try:
-                result = future.result()
-                polished_results.append(result)
-                completed += 1
-                if completed <= 10 or completed % 10 == 0:
-                    print(
-                        f"  [{completed}/{num_elites_to_polish}] Elite {elite_id + 1}: "
-                        f"{result['initial_fitness']:.2f} -> {result['polished_fitness']:.2f} "
-                        f"(+{result['fitness_gain']:.2f})"
-                    )
-            except Exception as exc:
-                print(f"  Failed Elite {elite_id + 1}: {exc}")
-                raise
+            completed = 0
+            for future in as_completed(future_to_elite):
+                elite_id, elite = future_to_elite[future]
+                try:
+                    result = future.result()
+                    polished_results.append(result)
+                    completed += 1
+                    if completed <= 10 or completed % 10 == 0:
+                        print(
+                            f"  [{completed}/{num_elites_to_polish}] Elite {elite_id + 1}: "
+                            f"{result['initial_fitness']:.2f} -> {result['polished_fitness']:.2f} "
+                            f"(+{result['fitness_gain']:.2f})"
+                        )
+                except Exception as exc:
+                    print(f"  Failed Elite {elite_id + 1}: {exc}")
+                    raise
 
     polished_results.sort(key=lambda x: x["polished_fitness"], reverse=True)
 
@@ -196,20 +198,25 @@ def main() -> None:
         output_path=output_dir / "map_elites_hc_heatmap.png",
     )
 
-    for top_n in (10, 20, 50):
-        plot_polished_elites(
-            initial_elites=top_elites_initial,
-            polished_elites=polished_results,
-            wavelengths=wavelengths_array,
-            parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
-            output_path=output_dir / f"map_elites_hc_top{top_n}_elites.png",
-            top_n=top_n,
-            title_prefix="MAP-Elites + HC Polish",
-        )
+    if polished_results:
+        for top_n in (10, 20, 50):
+            plot_polished_elites(
+                initial_elites=top_elites_initial,
+                polished_elites=polished_results,
+                wavelengths=wavelengths_array,
+                parameters_to_curves=gaussian_parameters_to_unit_amplitude_curves,
+                output_path=output_dir / f"map_elites_hc_top{top_n}_elites.png",
+                top_n=top_n,
+                title_prefix="MAP-Elites + HC Polish",
+            )
 
     # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
+    if not polished_results:
+        print("No eligible elites were polished; the archive and empty results are saved.")
+        return
+
     initial_fitnesses = [r["initial_fitness"] for r in polished_results]
     polished_fitnesses = [r["polished_fitness"] for r in polished_results]
     fitness_gains = [r["fitness_gain"] for r in polished_results]

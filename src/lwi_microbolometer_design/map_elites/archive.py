@@ -8,6 +8,35 @@ import numpy as np
 from tqdm import tqdm
 
 
+def _validate_archive_inputs(
+    num_initial: int,
+    gene_space: list[dict[str, float]],
+    grid_resolution: int,
+    mu_range: tuple[float, float],
+) -> None:
+    """Validate the public archive geometry, seed count and Gaussian gene bounds."""
+    if not isinstance(num_initial, (int, np.integer)) or num_initial < 0:
+        raise ValueError("num_initial must be a nonnegative integer.")
+    if not isinstance(grid_resolution, (int, np.integer)) or grid_resolution < 1:
+        raise ValueError("grid_resolution must be a positive integer.")
+    if len(mu_range) != 2 or not np.all(np.isfinite(mu_range)) or mu_range[0] >= mu_range[1]:
+        raise ValueError("mu_range must contain finite increasing bounds.")
+    if len(gene_space) < 4 or len(gene_space) % 2:
+        raise ValueError("gene_space must contain at least two complete (mu, sigma) pairs.")
+    for bounds in gene_space:
+        low, high = bounds["low"], bounds["high"]
+        if not np.isfinite(low) or not np.isfinite(high) or low > high:
+            raise ValueError("Each gene must have finite bounds with low <= high.")
+
+
+def _evaluate_fitness(fitness_func: Any, chromosome: np.ndarray) -> float:
+    """Evaluate a candidate without admitting nonfinite scores to an archive."""
+    fitness = float(fitness_func(None, chromosome, 0))
+    if not np.isfinite(fitness):
+        raise ValueError("fitness_func must return a finite scalar.")
+    return fitness
+
+
 def extract_features(chromosome: np.ndarray) -> tuple[float, float]:
     """Extract feature descriptors: (smallest_mu, second_smallest_mu).
 
@@ -116,6 +145,7 @@ def initialize_archive(
     dict
         Archive mapping ``(x_bin, y_bin) -> {"chromosome", "fitness", "mu_1", "mu_2"}``.
     """
+    _validate_archive_inputs(num_initial, gene_space, grid_resolution, mu_range)
     np.random.seed(random_seed)
     archive: dict[tuple[int, int], dict[str, Any]] = {}
 
@@ -134,7 +164,7 @@ def initialize_archive(
     for i in range(num_initial):
         chromosome = np.array([np.random.uniform(g["low"], g["high"]) for g in gene_space])
 
-        fitness = fitness_func(None, chromosome, 0)
+        fitness = _evaluate_fitness(fitness_func, chromosome)
         mu_1, mu_2 = extract_features(chromosome)
         x_bin, y_bin = bin_coordinates(mu_1, mu_2, grid_resolution, mu_range)
 

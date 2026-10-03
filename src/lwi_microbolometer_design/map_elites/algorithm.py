@@ -7,7 +7,8 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from .archive import (
+from lwi_microbolometer_design.map_elites.archive import (
+    _evaluate_fitness,
     archive_coverage_pct,
     bin_coordinates,
     extract_features,
@@ -102,6 +103,10 @@ def run_map_elites(
     dict
         Final archive mapping ``(x_bin, y_bin) -> best individual dict``.
     """
+    if not isinstance(num_iterations, (int, np.integer)) or num_iterations < 0:
+        raise ValueError("num_iterations must be a nonnegative integer.")
+    if not np.isfinite(mutation_probability) or not 0 <= mutation_probability <= 1:
+        raise ValueError("mutation_probability must lie in [0, 1].")
     np.random.seed(random_seed)
 
     archive = initialize_archive(
@@ -145,7 +150,7 @@ def run_map_elites(
             mutation_probability,
         )
 
-        child_fitness = fitness_func(None, child_chromosome, 0)
+        child_fitness = _evaluate_fitness(fitness_func, child_chromosome)
         mu_1, mu_2 = extract_features(child_chromosome)
         x_bin, y_bin = bin_coordinates(mu_1, mu_2, grid_resolution, mu_range)
 

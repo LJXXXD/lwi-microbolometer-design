@@ -69,11 +69,15 @@ def main() -> None:
         max_polish = 8
         fitness_threshold = 0.0
     else:
-        num_iterations = _budgets.MAP_ELITES_ITERATIONS
-        num_initial = _budgets.MAP_ELITES_NUM_INITIAL
-        hc_workers = args.hc_workers or _budgets.HC_MAX_WORKERS
+        num_iterations, num_initial = _budgets.map_elites_budget()
+        hc_workers = _budgets.HC_MAX_WORKERS
         max_polish = _budgets.HC_MAX_ELITES
         fitness_threshold = _budgets.HC_FITNESS_THRESHOLD
+
+    if args.hc_workers is not None:
+        hc_workers = args.hc_workers
+    if hc_workers < 1 or max_polish < 0 or not np.isfinite(fitness_threshold):
+        parser.error("HC workers must be positive, elite cap nonnegative and threshold finite.")
 
     total_map_evals = num_initial + num_iterations
     out_dir = _paths.step_output_dir(_paths.STEP_MAP_ELITES_HC)
@@ -174,32 +178,34 @@ def main() -> None:
 
     polished_results: list[dict[str, Any]] = []
     t_hc = time.perf_counter()
-    with ProcessPoolExecutor(max_workers=min(num_elites_to_polish, hc_workers)) as executor:
-        future_to_elite = {
-            executor.submit(
-                polish_single_elite_hc,
-                elite_id=i,
-                chromosome=elite["chromosome"],
-                initial_fitness=elite["fitness"],
-                fitness_func=fitness_func,
-                gene_space=gene_space,
-                num_iterations=5000,
-                mutation_sigma=0.05,
-                mutation_probability=0.2,
-                adaptive_iterations=True,
-            ): (i, elite)
-            for i, elite in enumerate(top_elites_initial)
-        }
-        for future in tqdm(
-            as_completed(future_to_elite),
-            total=num_elites_to_polish,
-            desc="[05] MAP-Elites+HC | hill climb",
-            unit="elite",
-            dynamic_ncols=True,
-            mininterval=0.2,
-            smoothing=0.05,
-        ):
-            polished_results.append(future.result())
+    if num_elites_to_polish > 0:
+        with ProcessPoolExecutor(max_workers=min(num_elites_to_polish, hc_workers)) as executor:
+            future_to_elite = {
+                executor.submit(
+                    polish_single_elite_hc,
+                    elite_id=i,
+                    random_seed=42 + i,
+                    chromosome=elite["chromosome"],
+                    initial_fitness=elite["fitness"],
+                    fitness_func=fitness_func,
+                    gene_space=gene_space,
+                    num_iterations=5000,
+                    mutation_sigma=0.05,
+                    mutation_probability=0.2,
+                    adaptive_iterations=True,
+                ): (i, elite)
+                for i, elite in enumerate(top_elites_initial)
+            }
+            for future in tqdm(
+                as_completed(future_to_elite),
+                total=num_elites_to_polish,
+                desc="[05] MAP-Elites+HC | hill climb",
+                unit="elite",
+                dynamic_ncols=True,
+                mininterval=0.2,
+                smoothing=0.05,
+            ):
+                polished_results.append(future.result())
     hc_wall_s = time.perf_counter() - t_hc
 
     polished_results.sort(key=lambda x: x["polished_fitness"], reverse=True)
@@ -265,6 +271,7 @@ def main() -> None:
                 "mutation_probability": 0.15,
                 "elites_polished": num_elites_to_polish,
                 "hc_workers": hc_workers,
+                "hc_random_seed_base": 42,
             },
             "wall_time_seconds_map_elites": map_wall_s,
             "wall_time_seconds_hc": hc_wall_s,

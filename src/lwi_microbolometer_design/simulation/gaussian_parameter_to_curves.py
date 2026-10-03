@@ -52,37 +52,15 @@ def gaussian_parameters_to_unit_amplitude_curves(
     ...     [(10.0, 2.0), (12.0, 1.5)], wavelengths
     ... )
     """
-    # Ensure wavelengths is 1D
-    wavelengths_1d = wavelengths.flatten() if wavelengths.ndim > 1 else wavelengths
-    num_wavelengths = len(wavelengths_1d)
-    num_subpixels = len(gaussian_parameters)
-
-    # Pre-allocate output array
-    response_curves = np.zeros((num_wavelengths, num_subpixels))
-
-    # Extract means and sigmas
-    means = np.array([mean for mean, _ in gaussian_parameters])
-    sigmas = np.array([sigma for _, sigma in gaussian_parameters])
-
-    # Align each mean to the closest discrete wavelength
-    # Use broadcasting to find closest wavelength for each mean
-    wavelength_diff = np.abs(wavelengths_1d[:, np.newaxis] - means[np.newaxis, :])
-    aligned_indices = np.argmin(wavelength_diff, axis=0)
+    wavelengths_1d = np.asarray(wavelengths, dtype=np.float64).reshape(-1)
+    if wavelengths_1d.size == 0 or not np.all(np.isfinite(wavelengths_1d)):
+        raise ValueError("wavelengths must be nonempty and finite.")
+    parameters = np.asarray(gaussian_parameters, dtype=np.float64)
+    if parameters.ndim != 2 or parameters.shape[1] != 2 or parameters.shape[0] == 0:
+        raise ValueError("gaussian_parameters must contain one or more (mu, sigma) pairs.")
+    if not np.all(np.isfinite(parameters)) or np.any(parameters[:, 1] <= 0):
+        raise ValueError("Gaussian means must be finite and sigmas finite and positive.")
+    means, sigmas = parameters.T
+    aligned_indices = np.argmin(np.abs(wavelengths_1d[:, None] - means), axis=0)
     aligned_means = wavelengths_1d[aligned_indices]
-
-    # Vectorized computation: compute all curves simultaneously
-    # Shape: (num_wavelengths, num_subpixels)
-    # For each wavelength (row) and each Gaussian (column):
-    #   curve[w, s] = exp(-(wavelengths[w] - aligned_means[s])^2 / (2 * sigmas[s]^2))
-
-    # Broadcasting: (num_wavelengths, num_subpixels) - (num_subpixels,)
-    # -> (num_wavelengths, num_subpixels)
-    wavelength_matrix = wavelengths_1d[:, np.newaxis]  # Shape: (num_wavelengths, 1)
-    aligned_means_matrix = aligned_means[np.newaxis, :]  # Shape: (1, num_subpixels)
-    sigmas_matrix = sigmas[np.newaxis, :]  # Shape: (1, num_subpixels)
-
-    # Compute all curves at once using broadcasting
-    exponents = -((wavelength_matrix - aligned_means_matrix) ** 2) / (2 * sigmas_matrix**2)
-    response_curves = np.exp(exponents)
-
-    return response_curves
+    return np.exp(-0.5 * ((wavelengths_1d[:, None] - aligned_means) / sigmas) ** 2)

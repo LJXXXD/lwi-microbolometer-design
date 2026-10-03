@@ -11,7 +11,25 @@ from typing import Any
 
 import numpy as np
 
-from .normalization import UnitCubeScaler
+from lwi_microbolometer_design.map_elites.archive import _evaluate_fitness
+from lwi_microbolometer_design.map_elites.normalization import UnitCubeScaler
+
+
+def _validate_initial_elite(
+    chromosome: np.ndarray, initial_fitness: float, gene_space: list[dict[str, float]]
+) -> None:
+    """Require a finite incumbent inside the declared search space."""
+    values = np.asarray(chromosome)
+    if values.ndim != 1 or values.size == 0 or values.size != len(gene_space):
+        raise ValueError("The initial chromosome must match the 1D gene space.")
+    if not np.all(np.isfinite(values)) or not np.isfinite(initial_fitness):
+        raise ValueError("The initial chromosome and fitness must be finite.")
+    low = np.array([g["low"] for g in gene_space])
+    high = np.array([g["high"] for g in gene_space])
+    if not np.all(np.isfinite(low)) or not np.all(np.isfinite(high)) or np.any(low > high):
+        raise ValueError("Gene bounds must be finite and ordered.")
+    if np.any(values < low) or np.any(values > high):
+        raise ValueError("The initial chromosome must lie within its gene bounds.")
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +47,7 @@ def polish_single_elite_hc(
     mutation_sigma: float = 0.05,
     mutation_probability: float = 0.15,
     adaptive_iterations: bool = True,
+    random_seed: int | None = None,
 ) -> dict[str, Any]:
     """Polish a single elite using greedy hill climbing.
 
@@ -52,6 +71,8 @@ def polish_single_elite_hc(
         Per-gene mutation probability.
     adaptive_iterations : bool
         Scale budget based on proximity to a target fitness.
+    random_seed : int | None
+        Seed for this worker's mutation stream; None uses the current stream.
 
     Returns
     -------
@@ -59,6 +80,15 @@ def polish_single_elite_hc(
         ``{"elite_id", "initial_chromosome", "initial_fitness",
         "polished_chromosome", "polished_fitness", "fitness_gain"}``.
     """
+    _validate_initial_elite(chromosome, initial_fitness, gene_space)
+    if not isinstance(num_iterations, (int, np.integer)) or num_iterations < 0:
+        raise ValueError("num_iterations must be a nonnegative integer.")
+    if not np.isfinite(mutation_sigma) or mutation_sigma < 0:
+        raise ValueError("mutation_sigma must be finite and nonnegative.")
+    if not np.isfinite(mutation_probability) or not 0 <= mutation_probability <= 1:
+        raise ValueError("mutation_probability must lie in [0, 1].")
+    if random_seed is not None:
+        np.random.seed(random_seed)
     if adaptive_iterations:
         target_fitness = 59.0
         fitness_gap = target_fitness - initial_fitness
@@ -90,7 +120,7 @@ def polish_single_elite_hc(
                 mutation = np.random.normal(0, mutation_sigma * range_size)
                 candidate[i] = max(low, min(high, candidate[i] + mutation))
 
-        candidate_fitness = fitness_func(None, candidate, 0)
+        candidate_fitness = _evaluate_fitness(fitness_func, candidate)
 
         if candidate_fitness > current_fitness:
             current_chromosome = candidate.copy()
@@ -123,6 +153,7 @@ def polish_single_elite_cma(
     max_fevals: int = 3000,
     initial_sigma: float = 0.15,
     population_size: int | None = None,
+    random_seed: int | None = None,
 ) -> dict[str, Any]:
     """Polish a single elite using CMA-ES.
 
@@ -140,11 +171,14 @@ def polish_single_elite_cma(
     gene_space : list
         Gene space bounds.
     max_fevals : int
-        Maximum fitness evaluations.
+        Maximum new fitness evaluations. The supplied initial fitness is reused;
+        a final partial batch is evaluated without updating CMA-ES.
     initial_sigma : float
         Initial step size in normalized unit-cube coordinates.
     population_size : int | None
         CMA-ES population size.  ``None`` uses the library default.
+    random_seed : int | None
+        CMA-ES seed for reproducible worker execution.
 
     Returns
     -------
@@ -155,6 +189,9 @@ def polish_single_elite_cma(
     """
     import cma
 
+    _validate_initial_elite(chromosome, initial_fitness, gene_space)
+    if not isinstance(max_fevals, (int, np.integer)) or max_fevals < 0:
+        raise ValueError("max_fevals must be a nonnegative integer.")
     bounds_low = [g["low"] for g in gene_space]
     bounds_high = [g["high"] for g in gene_space]
     scaler = UnitCubeScaler.from_bounds(bounds_low, bounds_high)
@@ -174,6 +211,8 @@ def polish_single_elite_cma(
     }
     if population_size is not None:
         opts["popsize"] = population_size
+    if random_seed is not None:
+        opts["seed"] = random_seed
 
     normalized_x0 = scaler.normalize(chromosome)
     es = cma.CMAEvolutionStrategy(normalized_x0.tolist(), sigma0, opts)
@@ -181,24 +220,20 @@ def polish_single_elite_cma(
     best_chromosome = chromosome.copy()
     best_fitness = initial_fitness
 
-    while not es.stop():
-        normalized_candidates = es.ask()
+    fevals_used = 0
+    while fevals_used < max_fevals and not es.stop():
+        normalized_candidates = es.ask()[: max_fevals - fevals_used]
         fitnesses = []
         for x in normalized_candidates:
             candidate = scaler.denormalize(np.asarray(x))
-            f = fitness_func(None, candidate, 0)
+            f = _evaluate_fitness(fitness_func, candidate)
             fitnesses.append(-f)
             if f > best_fitness:
                 best_fitness = f
                 best_chromosome = candidate.copy()
-        es.tell(normalized_candidates, fitnesses)
-
-    cma_result = es.result
-    final_chromosome = scaler.denormalize(np.asarray(cma_result.xbest))
-    final_fitness = fitness_func(None, final_chromosome, 0)
-    if final_fitness > best_fitness:
-        best_fitness = final_fitness
-        best_chromosome = final_chromosome.copy()
+        fevals_used += len(normalized_candidates)
+        if len(normalized_candidates) == es.popsize:
+            es.tell(normalized_candidates, fitnesses)
 
     return {
         "elite_id": elite_id,
@@ -207,5 +242,5 @@ def polish_single_elite_cma(
         "polished_chromosome": best_chromosome,
         "polished_fitness": best_fitness,
         "fitness_gain": best_fitness - initial_fitness,
-        "fevals_used": cma_result.evaluations,
+        "fevals_used": fevals_used,
     }

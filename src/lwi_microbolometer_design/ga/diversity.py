@@ -42,7 +42,7 @@ def compute_population_distance_matrix(
     calculations.
 
     **Routing Logic:**
-    - If optimal pairing is enabled: delegates to `_compute_optimal_pairing_distance_matrix()`
+    - If optimal pairing is enabled: delegates to `analysis.compute_distance_matrix`
     - Otherwise: uses standard scipy distance metrics (euclidean, manhattan, etc.)
 
     Parameters
@@ -136,8 +136,3 @@ def calculate_population_diversity(
     distances = distance_matrix[upper_triangle_indices]
 
     return float(np.mean(distances)) if len(distances) > 0 else 0.0
-
-
-# NOTE: _compute_optimal_pairing_distance_matrix() removed
-# Now uses distance_matrix.py with use_optimal_pairing=True option
-# This hides optimal pairing as an implementation detail

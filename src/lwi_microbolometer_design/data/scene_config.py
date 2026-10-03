@@ -1,4 +1,4 @@
-"""Immutable scene configuration for sensor simulation."""
+"""Frozen scene configuration for sensor simulation."""
 
 from __future__ import annotations
 
@@ -6,10 +6,18 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from lwi_microbolometer_design.simulation._validation import (
+    emissivity_matrix,
+    positive_scalar,
+    spectral_vector,
+    validate_transmittance,
+    validate_wavelengths,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class SceneConfig:
-    """Immutable snapshot of the physical scene for sensor simulation.
+    """Validated configuration of the physical scene for sensor simulation.
 
     Contains all environment and substance parameters needed by
     ``simulate_sensor_output``. Sensor basis functions are not included
@@ -21,7 +29,9 @@ class SceneConfig:
         Discrete wavelength sampling points in µm. Canonical shape is ``(d,)``;
         column vectors ``(d, 1)`` are squeezed on construction.
     emissivity_curves : np.ndarray
-        Emissivity spectrum for each substance, shape ``(d, n)``, values in [0, 1].
+        Finite measured emissivity spectrum for each substance, shape ``(d, n)``.
+        Raw values outside [0, 1] are preserved; they require a separate physical
+        interpretation or preprocessing decision before claims about emissivity.
     air_transmittance : np.ndarray
         Atmospheric transmission per wavelength. Canonical shape ``(d,)``;
         ``(d, 1)`` or the first column of ``(d, k)`` is used if needed.
@@ -37,7 +47,14 @@ class SceneConfig:
     Raises
     ------
     ValueError
-        If array shapes are inconsistent after canonicalization.
+        If shapes, spectral ordering, finiteness, or scene scalar domains are invalid.
+
+    Notes
+    -----
+    Fields are frozen, but NumPy array contents remain mutable. Do not cache
+    derived quantities across edits to those arrays. Wavelengths are vacuum
+    wavelengths in µm. Temperature and refractive index must be positive;
+    distance ratio may be zero (no path attenuation).
     """
 
     wavelengths: np.ndarray
@@ -50,57 +67,34 @@ class SceneConfig:
 
     def __post_init__(self) -> None:
         """Canonicalize array shapes and enforce spectral grid consistency."""
-        wl = np.asarray(self.wavelengths, dtype=np.float64)
-        wl = np.squeeze(wl)
-        if wl.ndim != 1:
-            msg = (
-                "wavelengths must reduce to a 1D array of length d; "
-                f"got shape {np.asarray(self.wavelengths).shape}"
-            )
-            raise ValueError(msg)
-        wl = wl.reshape(-1)
-        object.__setattr__(self, "wavelengths", wl)
-
-        em = np.asarray(self.emissivity_curves, dtype=np.float64)
-        object.__setattr__(self, "emissivity_curves", em)
-
+        wl = spectral_vector(self.wavelengths, "wavelengths")
+        validate_wavelengths(wl)
+        em = emissivity_matrix(self.emissivity_curves, wl.size)
         at = np.asarray(self.air_transmittance, dtype=np.float64)
-        if at.ndim == 2:
-            if at.shape[1] == 1:
-                at = np.squeeze(at, axis=1)
-            else:
-                at = at[:, 0]
-        at = np.squeeze(at)
-        if at.ndim != 1:
-            msg = (
-                "air_transmittance must reduce to a 1D array of length d; "
-                f"got shape {np.asarray(self.air_transmittance).shape}"
+        if at.ndim == 2 and at.shape[1] > 0:
+            at = at[:, 0]
+        at = spectral_vector(at, "air_transmittance")
+        if at.size != wl.size:
+            raise ValueError(
+                f"air_transmittance length ({at.size}) must match wavelengths length ({wl.size})"
             )
-            raise ValueError(msg)
-        at = at.reshape(-1)
+        validate_transmittance(at)
+        names = np.asarray(self.substance_names, dtype=object).reshape(-1)
+        if names.size != em.shape[1]:
+            raise ValueError(
+                f"substance_names length ({names.size}) must match "
+                f"number of emissivity columns ({em.shape[1]})"
+            )
+
+        object.__setattr__(self, "wavelengths", wl)
+        object.__setattr__(self, "emissivity_curves", em)
         object.__setattr__(self, "air_transmittance", at)
-
-        names = np.asarray(self.substance_names, dtype=object)
-        object.__setattr__(self, "substance_names", names.reshape(-1))
-
-        d = int(wl.shape[0])
-        if em.ndim != 2:
-            msg = f"emissivity_curves must be 2D with shape (d, n); got shape {em.shape}"
-            raise ValueError(msg)
-        if em.shape[0] != d:
-            msg = (
-                f"emissivity_curves first axis ({em.shape[0]}) must match wavelengths length ({d})"
+        object.__setattr__(self, "substance_names", names)
+        for name in ("temperature_k", "air_refractive_index", "atmospheric_distance_ratio"):
+            object.__setattr__(
+                self,
+                name,
+                positive_scalar(
+                    getattr(self, name), name, allow_zero=name == "atmospheric_distance_ratio"
+                ),
             )
-            raise ValueError(msg)
-
-        if at.shape[0] != d:
-            msg = f"air_transmittance length ({at.shape[0]}) must match wavelengths length ({d})"
-            raise ValueError(msg)
-
-        n_sub = int(em.shape[1])
-        if names.shape[0] != n_sub:
-            msg = (
-                f"substance_names length ({names.shape[0]}) must match "
-                f"number of emissivity columns ({n_sub})"
-            )
-            raise ValueError(msg)

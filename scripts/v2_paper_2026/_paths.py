@@ -34,9 +34,9 @@ def step_output_dir(step_key: str) -> Path:
 
 def default_cma_me_archive_path() -> Path:
     """Archive produced by run_06 (CMA-ME only)."""
-    return step_output_dir(STEP_CMA_ME) / "cma_me_archive.pkl"
+    return v2_paper_2026_output_root() / STEP_CMA_ME / "cma_me_archive.pkl"
 
 
 def default_robustness_archive_path() -> Path:
-    """Hero QD+HC archive from run_05; default input for run_07 robustness phase."""
-    return step_output_dir(STEP_MAP_ELITES_HC) / "map_elites_archive.pkl"
+    """Pre-HC QD archive from run_05; default input for run_07 robustness phase."""
+    return v2_paper_2026_output_root() / STEP_MAP_ELITES_HC / "map_elites_archive.pkl"

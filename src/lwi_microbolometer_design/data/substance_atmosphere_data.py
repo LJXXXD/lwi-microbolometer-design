@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from itertools import product
 from pathlib import Path
 from typing import overload
 
 import numpy as np
 import pandas as pd
 
-from .scene_config import SceneConfig
+from lwi_microbolometer_design.data.scene_config import SceneConfig
 
 logger = logging.getLogger(__name__)
 
@@ -44,15 +45,15 @@ def load_substance_atmosphere_data(
     atmospheric_distance_ratio: float | Sequence[float] | np.ndarray = 0.11,
     temperature_kelvin: float | Sequence[float] | np.ndarray = 293.15,
     air_refractive_index: float | Sequence[float] | np.ndarray = 1.0,
-) -> list[SceneConfig]: ...
+) -> SceneConfig | list[SceneConfig]: ...
 
 
 def load_substance_atmosphere_data(
     spectral_data_file: Path,
     air_transmittance_file: Path,
-    atmospheric_distance_ratio: float | list[float] | np.ndarray = 0.11,
-    temperature_kelvin: float | list[float] | np.ndarray = 293.15,
-    air_refractive_index: float | list[float] | np.ndarray = 1.0,
+    atmospheric_distance_ratio: float | Sequence[float] | np.ndarray = 0.11,
+    temperature_kelvin: float | Sequence[float] | np.ndarray = 293.15,
+    air_refractive_index: float | Sequence[float] | np.ndarray = 1.0,
 ) -> SceneConfig | list[SceneConfig]:
     """
     Load substance spectral data and atmospheric data from Excel files.
@@ -76,14 +77,17 @@ def load_substance_atmosphere_data(
         contain emissivity values for different substances.
     air_transmittance_file : Path
         Path to the Excel file containing air transmittance data.
-        Expected format: Second column onwards contains transmittance values.
-    atmospheric_distance_ratio : float | list[float] | np.ndarray, optional
+        Expected format: No header; first column contains wavelengths in µm
+        exactly matching the substance grid. The second column supplies the
+        transmission curve. Further columns retain the first-column API rule;
+        they are not interpreted as additional environmental conditions.
+    atmospheric_distance_ratio : float | Sequence[float] | np.ndarray, optional
         Atmospheric distance ratio(s) for simulation (default: 0.11)
         If multiple values provided, creates one dataset per value
-    temperature_kelvin : float | list[float] | np.ndarray, optional
+    temperature_kelvin : float | Sequence[float] | np.ndarray, optional
         Scene temperature(s) in Kelvin (default: 293.15)
         If multiple values provided, creates one dataset per value
-    air_refractive_index : float | list[float] | np.ndarray, optional
+    air_refractive_index : float | Sequence[float] | np.ndarray, optional
         Air refractive index value(s) (default: 1.0)
         If multiple values provided, creates one dataset per value
 
@@ -92,13 +96,12 @@ def load_substance_atmosphere_data(
     SceneConfig | list[SceneConfig]
         If all parameters are scalars: a single :class:`SceneConfig`.
 
-        If any parameter is a list/array: list of :class:`SceneConfig`, one per
-        condition. Conditions are generated from all combinations of provided
-        parameter values.
+        If any parameter has more than one value: list of :class:`SceneConfig`,
+        one per condition, from all combinations of the parameter values.
 
-        Type checkers treat any ``Sequence[float]`` or ``ndarray`` argument as
-        the multi-condition overload (returning ``list[SceneConfig]``). At
-        runtime, length-1 sequences still yield a single :class:`SceneConfig`.
+        Length-1 sequences yield a single :class:`SceneConfig`; longer sequences
+        produce a Cartesian product in distance, temperature, index order.
+        Empty or multidimensional condition arrays are rejected.
 
     Examples
     --------
@@ -116,30 +119,28 @@ def load_substance_atmosphere_data(
     """
     # Load spectral data (same for all conditions)
     substances_spectral_data = pd.read_excel(spectral_data_file)
-    wavelengths = substances_spectral_data.iloc[:, :1].to_numpy()
+    wavelengths = substances_spectral_data.iloc[:, 0].to_numpy(dtype=np.float64)
     substance_names = substances_spectral_data.columns[1:].to_numpy()
     emissivity_curves = substances_spectral_data.iloc[:, 1:].to_numpy()
 
     # Load air transmittance (same for all conditions)
     air_transmittance_df = pd.read_excel(air_transmittance_file, header=None)
-    air_transmittance: np.ndarray = air_transmittance_df.to_numpy()[:, 1:]
+    if air_transmittance_df.shape[1] < 2:
+        raise ValueError("Atmosphere workbook requires wavelength and transmission columns.")
+    atmosphere_wavelengths = air_transmittance_df.iloc[:, 0].to_numpy(dtype=np.float64)
+    if not np.array_equal(wavelengths, atmosphere_wavelengths):
+        raise ValueError(
+            "Atmosphere wavelengths must exactly match the substance grid in µm; "
+            "align the input spectra explicitly before loading. No interpolation is performed."
+        )
+    air_transmittance = air_transmittance_df.iloc[:, 1:].to_numpy()
 
-    logger.info(f"Loaded spectral data for {len(substance_names)} substances")
-    wl_flat = np.squeeze(np.asarray(wavelengths, dtype=np.float64))
-    if wl_flat.ndim == 1:
-        logger.info(f"Wavelength range: {wl_flat[0]:.1f} - {wl_flat[-1]:.1f} µm")
-    else:
-        logger.info("Wavelength range: (non-vector layout; see SceneConfig)")
-
-    # Convert parameters to numpy arrays for easier handling
-    def to_array(value: float | list[float] | np.ndarray) -> np.ndarray:
-        """Convert scalar or list to numpy array."""
-        if isinstance(value, (list, tuple)):
-            return np.array(value)
-        elif isinstance(value, np.ndarray):
-            return value
-        else:
-            return np.array([value])
+    def to_array(value: float | Sequence[float] | np.ndarray) -> np.ndarray:
+        """Normalize a nonempty scalar or 1D condition sequence."""
+        array = np.atleast_1d(np.asarray(value, dtype=np.float64))
+        if array.ndim != 1 or array.size == 0:
+            raise ValueError("Condition values must be a nonempty scalar or 1D sequence.")
+        return array
 
     atm_ratios = to_array(atmospheric_distance_ratio)
     temps = to_array(temperature_kelvin)
@@ -166,15 +167,6 @@ def load_substance_atmosphere_data(
     if not is_multi_condition:
         return build_scene(float(atm_ratios[0]), float(temps[0]), float(ref_indices[0]))
 
-    atm_mesh, temp_mesh, ref_mesh = np.meshgrid(atm_ratios, temps, ref_indices, indexing="ij")
-
-    conditions = list(
-        zip(atm_mesh.flatten(), temp_mesh.flatten(), ref_mesh.flatten(), strict=False)
-    )
-
-    logger.info(f"Creating {len(conditions)} simulation conditions from parameter combinations")
-
-    return [
-        build_scene(float(atm_ratio), float(temp), float(ref_idx))
-        for atm_ratio, temp, ref_idx in conditions
-    ]
+    conditions = list(product(atm_ratios, temps, ref_indices))
+    logger.info("Creating %d simulation conditions from parameter combinations", len(conditions))
+    return [build_scene(atm_ratio, temp, ref_idx) for atm_ratio, temp, ref_idx in conditions]

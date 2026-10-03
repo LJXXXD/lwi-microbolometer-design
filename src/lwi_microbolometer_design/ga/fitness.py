@@ -60,7 +60,7 @@ class MinDissimilarityFitnessEvaluator:
         Parameters
         ----------
         scene : SceneConfig | Sequence[SceneConfig]
-            One or more immutable scene snapshots.  A single ``SceneConfig``
+            One or more validated scene configurations.  A single ``SceneConfig``
             activates single-condition mode (``aggregation`` is forced to
             ``"single"``).  A list/sequence enables multi-condition robust
             evaluation.
@@ -82,8 +82,9 @@ class MinDissimilarityFitnessEvaluator:
         Raises
         ------
         ValueError
-            If *aggregation* is not one of the supported values, or if
-            ``"single"`` is requested with multiple scenes.
+            If aggregation or the parameter-group size is invalid, scenes are empty,
+            or a scene contains fewer than two substances. Multiple scenes with
+            ``"single"`` retain the warning and coercion to ``"min"``.
         """
         if aggregation not in SUPPORTED_AGGREGATIONS:
             raise ValueError(
@@ -93,10 +94,6 @@ class MinDissimilarityFitnessEvaluator:
         if isinstance(scene, SceneConfig):
             self._scenes: list[SceneConfig] = [scene]
             self.aggregation = "single"
-            if aggregation not in ("single", "min", "mean"):
-                raise ValueError(
-                    f"aggregation must be one of {SUPPORTED_AGGREGATIONS}, got {aggregation!r}"
-                )
         else:
             self._scenes = list(scene)
             if len(self._scenes) == 0:
@@ -108,6 +105,14 @@ class MinDissimilarityFitnessEvaluator:
                 )
                 aggregation = "min"
             self.aggregation = aggregation
+
+        if (
+            not isinstance(params_per_basis_function, (int, np.integer))
+            or params_per_basis_function <= 0
+        ):
+            raise ValueError("params_per_basis_function must be a positive integer.")
+        if any(s.emissivity_curves.shape[1] < 2 for s in self._scenes):
+            raise ValueError("Fitness evaluation requires at least two substances per scene.")
 
         self.distance_metric = distance_metric
         self.params_per_basis_function = params_per_basis_function
@@ -185,6 +190,9 @@ class MinDissimilarityFitnessEvaluator:
         * ``params_per_basis_function=3``:
           ``[p1, p2, p3, p4, p5, p6, ...]`` -> ``[(p1, p2, p3), (p4, p5, p6), ...]``
         """
+        chromosome = np.asarray(chromosome, dtype=np.float64)
+        if chromosome.ndim != 1 or chromosome.size == 0 or not np.all(np.isfinite(chromosome)):
+            raise ValueError("Chromosome must be a nonempty finite 1D vector.")
         num_genes = len(chromosome)
 
         if num_genes % self.params_per_basis_function != 0:

@@ -67,19 +67,28 @@ def _ensure_distance_matrix(
     Raises
     ------
     ValueError
-        If neither items nor distance_matrix is provided, or if items provided
-        without distance_func.
+        If inputs are missing or the matrix is not square and finite.
     """
-    if distance_matrix is not None:
-        return distance_matrix
-
-    if items is None:
+    if distance_matrix is None and items is None:
         raise ValueError("Must provide either items or distance_matrix")
 
-    if distance_func is None:
-        distance_func = spectral_angle_mapper
+    if distance_matrix is None:
+        distance_matrix = compute_distance_matrix(
+            items, distance_func=distance_func or spectral_angle_mapper, axis=axis, **kwargs
+        )
+    matrix = np.asarray(distance_matrix, dtype=np.float64)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("distance_matrix must be square.")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("distance_matrix must be finite.")
+    return matrix
 
-    return compute_distance_matrix(items, distance_func=distance_func, axis=axis, **kwargs)
+
+def _off_diagonal_values(matrix: np.ndarray) -> np.ndarray:
+    """Extract distinct-item distances, including genuine zero separations."""
+    if matrix.shape[0] < 2:
+        raise ValueError("At least two items are required for pairwise dissimilarity.")
+    return matrix[~np.eye(matrix.shape[0], dtype=bool)]
 
 
 def min_based_dissimilarity_score(
@@ -92,7 +101,7 @@ def min_based_dissimilarity_score(
     """Compute dissimilarity score based on minimum off-diagonal distance.
 
     Returns the minimum separation between any pair of substances. A conservative
-    metric that ensures all substances can be distinguished with at least this distance.
+    angular-separation objective; it does not establish identification accuracy.
 
     Parameters
     ----------
@@ -110,11 +119,7 @@ def min_based_dissimilarity_score(
     """
     distance_matrix = _ensure_distance_matrix(items, distance_matrix, distance_func, axis, **kwargs)
 
-    n = distance_matrix.shape[0]
-    # Extract off-diagonal values (exclude diagonal elements)
-    # Use np.eye without dtype parameter, then convert to bool for indexing
-    eye_mask = np.eye(n).astype(bool)
-    off_diag_values = distance_matrix[~eye_mask]
+    off_diag_values = _off_diagonal_values(distance_matrix)
 
     # Find the minimum distance among all pairs
     min_distance = float(np.min(off_diag_values))
@@ -158,11 +163,7 @@ def mean_min_based_dissimilarity_score(
     """
     distance_matrix = _ensure_distance_matrix(items, distance_matrix, distance_func, axis, **kwargs)
 
-    n = distance_matrix.shape[0]
-    # Extract off-diagonal values
-    # Use np.eye without dtype parameter, then convert to bool for indexing
-    eye_mask = np.eye(n).astype(bool)
-    off_diag_values = distance_matrix[~eye_mask]
+    off_diag_values = _off_diagonal_values(distance_matrix)
 
     # Calculate mean of off-diagonal values
     mean_distance = np.mean(off_diag_values)
@@ -222,6 +223,11 @@ def group_based_dissimilarity_score(
     if num_groups < min_groups:
         raise ValueError(f"At least {min_groups} groups are required to compute dissimilarity.")
 
+    if any(not group for group in groups):
+        raise ValueError("Each group must contain at least one item.")
+    if any(i < 0 or i >= distance_matrix.shape[0] for group in groups for i in group):
+        raise ValueError("Group indices must refer to items in distance_matrix.")
+
     # Calculate inter-group distances
     inter_group_distances = []
     for g1 in range(num_groups):
@@ -273,10 +279,7 @@ def weighted_mean_min_dissimilarity_score(
     """
     distance_matrix = _ensure_distance_matrix(items, distance_matrix, distance_func, axis, **kwargs)
 
-    n = distance_matrix.shape[0]
-    # Use np.eye without dtype parameter, then convert to bool for indexing
-    eye_mask = np.eye(n).astype(bool)
-    off_diag_values = distance_matrix[~eye_mask]
+    off_diag_values = _off_diagonal_values(distance_matrix)
     mean_distance = float(np.mean(off_diag_values))
     min_distance = float(np.min(off_diag_values))
     score = float(beta * mean_distance + (1 - beta) * min_distance)

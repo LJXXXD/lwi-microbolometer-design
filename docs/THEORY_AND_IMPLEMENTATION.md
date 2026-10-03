@@ -180,14 +180,14 @@ Integrated sensor response for channel **i** and substance **j** (discrete grid,
 S[i,j] ≈ ∫ τ(λ)^r · B(λ, T, n) · ε[j](λ) · Φ[i](λ) dλ
 ```
 
-**λ** is wavelength in **µm**. Implemented in `simulate_sensor_output` as elementwise products on the grid plus `np.trapezoid`.
+**λ** is wavelength in **µm**. Implemented in `simulate_sensor_output` using nonuniform trapezoidal weights and matrix multiplication across all channels and substances. With dimensionless emissivity, transmission and basis functions, the output is integrated radiance in **W/(m²·sr)**; a voltage output requires a separate calibrated transfer model.
 
 | Symbol | Meaning |
 |--------|---------|
 | λ | Wavelength (µm) |
 | τ(λ) | Atmospheric transmittance (loaded curve) |
 | r | `atmospheric_distance_ratio` — exponent on τ (path / visibility handle) |
-| B(λ, T, n) | Planck blackbody spectral radiance; code includes medium **n²** scaling |
+| B(λ, T, n) | Spectral radiance per µm of vacuum wavelength; **n²** applies to a homogeneous, isotropic, nonattenuating medium with a fixed index, not arbitrary interfaces or dispersive optical stacks |
 | ε[j] | Emissivity of substance j |
 | Φ[i] | Channel i responsivity on the grid (default: unit-amplitude Gaussian from genes) |
 
@@ -207,7 +207,7 @@ Pairwise SAM values form an `(n, n)` matrix. **`min_based_dissimilarity_score`**
 
 ### 6.4 Degenerate fingerprints
 
-If a fingerprint vector has (near) **zero norm**, **`spectral_angle_mapper`** returns **`0.0`** degrees (treated as maximally similar) so **arccos** never receives invalid input. Fitness stays **finite** so optimizers can escape degenerate designs.
+If a fingerprint vector has (near) **zero norm**, **`spectral_angle_mapper`** returns **`0.0`** degrees (treated as maximally similar) so **arccos** never receives invalid input. The guard applies only to finite vectors with norm below **`1e-15`**. Nonfinite inputs raise errors; execution failures are not optimization scores. Genuine zero off-diagonal angles remain part of maximin scoring.
 
 ### 6.5 Multi-condition (robust) evaluation
 
@@ -239,7 +239,9 @@ Single-scene mode uses **`aggregation="single"`**. YAML wiring: `experiment.data
 | `sensor_outputs` | `(m, n)` | Column index j = substance j |
 | Distance matrix | `(n, n)` | SAM between columns when `axis=1` |
 
-**Internal reshaping:** `simulate_sensor_output` reshapes λ and τ to `(d, 1)` for broadcasting; callers usually pass 1D λ from `SceneConfig`.
+**Input domains:** The integration grid is finite, positive, strictly increasing and has at least two samples. Transmission is finite in [0, 1]; temperature and index are positive; distance ratio is nonnegative. Basis functions and emissivity are finite. Emissivity retains signed and out-of-range measurements without clipping; these values cannot automatically be interpreted as physical emissivity. The nominal workbook includes a minimum of **-0.013948**. The spectral and atmosphere wavelength columns must match exactly; the loader performs no interpolation.
+
+**Integration:** For trapezoidal weights **`w`**, the matrix operation is **`basis.T @ ((w * tau**r * B)[:, None] * emissivity)`**. At **`r=0`**, attenuation is one, including where tau is zero. Floating-point summation order can differ from per-substance integration.
 
 ---
 
@@ -250,7 +252,7 @@ data  →  simulation  →  analysis  →  ga / map_elites  →  visualization
 (load)    (physics)      (metrics)     (search)            (plots only)
 ```
 
-**`simulation/`** and **`analysis/`** do **not** import **`ga/`** or **`map_elites/`**. Optimizers depend on physics and metrics, not the reverse.
+Core simulation and distance/scoring modules are independent of optimizers. Environmental robustness is an evaluation orchestration layer: it imports **`MinDissimilarityFitnessEvaluator`** locally so training and evaluation share one fitness contract without an import-time cycle.
 
 **Useful patterns:** **`parameters_to_curves`** is a **Strategy**-style hook: swap Gaussian curves for another parameterization without changing the GA. **`MinDissimilarityFitnessEvaluator`** is a **class** (not a closure) so **`fitness_func`** can be **pickled** for multiprocessing.
 
@@ -265,6 +267,7 @@ src/lwi_microbolometer_design/
 │   ├── scene_config.py
 │   └── substance_atmosphere_data.py
 ├── simulation/
+│   ├── _validation.py
 │   ├── blackbody.py
 │   ├── gaussian_parameter_to_curves.py
 │   └── sensor_simulation.py
@@ -274,6 +277,8 @@ src/lwi_microbolometer_design/
 │   ├── dissimilarity_scoring.py
 │   ├── optimal_pairing_distance.py
 │   ├── robustness.py
+│   ├── elite_clustering.py
+│   ├── clodd.py
 │   ├── vat.py
 │   └── __init__.py
 ├── ga/
@@ -310,11 +315,11 @@ src/lwi_microbolometer_design/
 
 ### `scene_config.py`
 
-- **`SceneConfig`** — Frozen, slots dataclass; **canonicalizes** wavelengths and transmittance to 1D; validates `(d, n)` vs. `substance_names` length. Single **DTO** for “everything about the scene except the sensor being optimized.” See §2 for PoC substance count and multi-environment use.
+- **`SceneConfig`** — Frozen, slots dataclass; field bindings are frozen but NumPy array contents remain mutable. It **canonicalizes** wavelengths and transmittance to 1D and validates domains, shapes and names. No cached forward-model quantities depend on array immutability. Single **DTO** for “everything about the scene except the sensor being optimized.” See §2 for PoC substance count and multi-environment use.
 
 ### `substance_atmosphere_data.py`
 
-- **`load_substance_atmosphere_data(...)`** — Reads Excel: spectral sheet (λ + emissivity columns + headers as names), transmittance sheet (uses columns from index 1 onward as in code). Returns **`SceneConfig`** if all of temperature, distance ratio, and refractive index are effectively single-valued; if any parameter is a **list/array** (and multi-condition is triggered), returns **`list[SceneConfig]`** via **`meshgrid`** over all combinations. Typed with **`@overload`** for static checkers.
+- **`load_substance_atmosphere_data(...)`** — Reads the spectral workbook with headers (λ + emissivity columns), and the atmosphere workbook without headers (λ + transmission). Only the first transmission column is used; extra columns are not additional environments. Scalars and length-one sequences return one **`SceneConfig`**. Nonempty 1D sequences form a Cartesian product in distance, temperature, index order and return a list when there is more than one combination. Empty and multidimensional sequences are rejected. Typed with **`@overload`** for static checkers.
 
 **Implicit behavior:** Multi-condition lists support **robust training** (min/mean aggregation) and **robustness evaluation** (grids of scenes).
 
@@ -324,7 +329,7 @@ src/lwi_microbolometer_design/
 
 ### `blackbody.py`
 
-- **`blackbody_emit(spectra, temperature_k, refractive_index)`** — Planck law in µm scale; includes **n²** medium factor per docstring. Pure NumPy.
+- **`blackbody_emit(spectra, temperature_k, refractive_index)`** — Planck spectral radiance **`2 h c² n² × 10²⁴ / (λ⁵ (exp(hc×10⁶/(λkT))−1))`**, in **W/(m²·sr·µm)**. Historical CODATA 2010 constants are retained. Log-domain evaluation avoids intermediate overflow in the Wien tail; only the final radiance may underflow. The integral over vacuum wavelength is **`n² σ T⁴ / π`**; no extra π belongs in the radiance formula. See [NIST TN 910-8, Eq. 12.3a](https://nvlpubs.nist.gov/nistpubs/Legacy/TN/nbstechnicalnote910-8.pdf) for the wavelength and medium convention.
 
 ### `gaussian_parameter_to_curves.py`
 
@@ -332,7 +337,7 @@ src/lwi_microbolometer_design/
 
 ### `sensor_simulation.py`
 
-- **`simulate_sensor_output(...)`** — Full chain: blackbody, τ^r, multiply emissivity and basis functions, integrate per substance. **Python loop over substances** (clear, fast enough for typical `n`); vectorization is an optional future optimization.
+- **`simulate_sensor_output(...)`** — Full chain: validated inputs, blackbody, τ^r, nonuniform trapezoidal weights and matrix integration. Output shape is **`(m, n)`**. It preserves the trapezoidal integral, not bitwise equality of different summation orders.
 
 ---
 
@@ -415,7 +420,7 @@ Re-exports scoring, `compute_distance_matrix`, `spectral_angle_mapper`, `calcula
 ### `mutations.py`
 
 - **`MutationConfig`** — Presets (`balanced`, `conservative`, `aggressive`) and thresholds for stagnation / diversity.
-- **`diversity_preserving_mutation`** — PyGAD mutation callback: progress-aware step size, stagnation detection, Cauchy heavy tails, optional push away from mean, gene restarts, discrete vs. continuous gene handling. Large module; treat as **one adaptive operator** unless debugging.
+- **`diversity_preserving_mutation`** — PyGAD mutation callback: progress-aware step size, stagnation detection, Cauchy heavy tails, optional push away from mean, gene restarts, discrete vs. continuous gene handling. All draws use the NumPy stream seeded by PyGAD. Two-value lists remain discrete; stepped spaces use PyGAD’s high-exclusive grid. Large module; treat as **one adaptive operator** unless debugging.
 
 ### `ga_configuration.py`
 
@@ -439,7 +444,7 @@ Re-exports scoring, `compute_distance_matrix`, `spectral_angle_mapper`, `calcula
 
 ### `result_extraction.py`
 
-- **`extract_basic_results`** — Standard dict from finished **`AdvancedGA`** for plotting (fitness arrays, population snapshots metadata, etc.).
+- **`extract_basic_results`** — Standard dict from finished **`AdvancedGA`**. Per-generation mean fitness and diversity are returned only when actually tracked; missing histories are empty. Final diversity is a separate value. A failed `best_solution()` propagates its error rather than fabricating a zero-fitness candidate.
 
 ### `population_analysis.py`
 
@@ -483,12 +488,12 @@ First-class package (not only scripts). **Feature extraction** still assumes **G
 
 ### `cma_me.py`
 
-- **`run_cma_me`** — (**1**) **Seed** the MAP-Elites archive with **`num_initial`** random evaluations (same geometry as vanilla MAP-Elites). (**2**) Create **`num_emitters`** **`OptimizingEmitter`** instances, each initialized at a **random archive elite’s** chromosome. (**3**) Until the **evaluation budget** is exhausted: for each emitter, **`ask`** a batch → evaluate **`fitness_func(None, chromosome, 0)`** for each → compute per-candidate **archive improvement** (new bin: `imp = fitness`; occupied bin: `imp = max(0, fitness − incumbent)`; else `0`) → update the shared archive → **`tell`**. (**4**) When an emitter **converges** (CMA internal stop or **`restart_patience`** generations without any archive improvement in its batches), **`restart`** its mean at a **new random elite**. Returns **`(archive, metadata)`** including **`history`** (evals, archive size, best fitness, coverage). Reference: Fontaine et al., *Covariance Matrix Adaptation for the Rapid Illumination of Behavior Space* (GECCO 2020). Loop detail: **`docs/01_EXPERIMENT_PIPELINE.md`** §8.3–8.4.
+- **`run_cma_me`** — (**1**) **Seed** the MAP-Elites archive with **`num_initial`** random evaluations (same geometry as vanilla MAP-Elites). (**2**) Create **`num_emitters`** **`OptimizingEmitter`** instances, each initialized at a **random archive elite’s** chromosome. (**3**) Until the **evaluation budget** is exhausted: for each emitter, **`ask`** a batch → evaluate **`fitness_func(None, chromosome, 0)`** for each → compute per-candidate **archive improvement** (new bin: `imp = fitness`; occupied bin: `imp = max(0, fitness − incumbent)`; else `0`) → update the shared archive → **`tell`** for a full batch. The last batch is limited to remaining evaluations; its archive updates count even when there are too few points for `tell`. Vacant cells accept every finite score, including zero and negative scores. (**4**) When an emitter **converges** (CMA internal stop or **`restart_patience`** generations without any archive improvement in its batches), **`restart`** its mean at a **new random elite**. Returns **`(archive, metadata)`** including **`history`** (evals, archive size, best fitness, coverage). Reference: Fontaine et al., *Covariance Matrix Adaptation for the Rapid Illumination of Behavior Space* (GECCO 2020). Loop detail: **`docs/01_EXPERIMENT_PIPELINE.md`** §8.3–8.4.
 
 ### `polish.py`
 
 - **`polish_single_elite_hc`** — Random perturbation hill-climbing; **`adaptive_iterations`** scales effort vs. gap to a hardcoded target fitness (`59.0` in code — **presentation-era calibration**; change if the fitness scale shifts).
-- **`polish_single_elite_cma`** — Local **`cma.fmin2`**-style polish from an elite (see file for bounds handling via **`UnitCubeScaler`**).
+- **`polish_single_elite_cma`** — Local **ask/evaluate/tell** CMA-ES from an elite in normalized coordinates. The known initial score is reused, all candidate evaluations count against **`max_fevals`**, and a final partial batch is evaluated without calling `tell`. Both polish APIs accept a seed; HC workers in the presentation suite use **`42 + elite index`**.
 
 ### `map_elites/visualization.py`
 
@@ -534,6 +539,9 @@ Scripts are **applications**; they may duplicate small wiring patterns. Prefer a
 
 Under `tests/`:
 
+- **`test_spectral_contracts.py`** — Planck reference, Wien/Rayleigh–Jeans limits, radiance integral, nonuniform signed integration, real Excel alignment and domains.
+- **`test_optimizer_contracts.py`** — Exact budgets, seeds, shared fitness, degeneracy, CSV overrides and honest histories.
+- **`test_analysis_contracts.py`**, **`test_experiment_entrypoints.py`** — Pairwise expectations, clustering, plot defaults, worker forwarding and invalid configuration boundaries.
 - **`test_scene_config.py`** — DTO validation / shapes.
 - **`test_simulation.py`** — Forward model sanity.
 - **`test_analysis.py`** — Metrics / matrices / scoring.
@@ -553,7 +561,8 @@ Use **`pytest`**; floating-point checks should use **`math.isclose` / `np.allclo
 4. **MAP-Elites descriptor** (sorted μs) is **low-dimensional** and **permutation-invariant in μ only** — σ does not index the archive; same μs with different σs **share a cell**.
 5. **CMA-ME** ties learning to **archive improvement**; hyperparameters (`num_emitters`, `batch_size`, `initial_sigma`, `restart_patience`) trade coverage vs. peak fitness.
 6. **Niching vs. SAM:** genotype distances need not match phenotype angles; output-space niching would be heavier.
-7. **Performance:** blackbody and τ^r are recomputed per fitness call; caching per `SceneConfig` is an optional speedup.
+7. **Performance:** matrix quadrature and batched SAM avoid repeated substance/pair loops. Blackbody and τ^r are recomputed per call because SceneConfig arrays are mutable. Any future cache needs explicit ownership or invalidation.
+8. **Robustness scope:** common positive gains cancel in SAM above the norm threshold. With the nominal transmission identically one, distance-ratio sweeps do not probe wavelength-dependent atmospheric attenuation. The n² factor alone also cancels. These sweeps evaluate the configured surrogate, not measured identification performance.
 
 **Reasonable paper angles:** simulation-informed channel design; QD archives for diverse high-fitness configs; minimax / multi-environment training vs. nominal-only; clear limits (single-pixel forward model, optional noise, no diffraction model unless added).
 
@@ -561,13 +570,12 @@ Use **`pytest`**; floating-point checks should use **`math.isclose` / `np.allclo
 
 ## 20. Optional extensions and known gaps
 
-Already in the tree: **`SceneConfig`**, split **`ga/experiment.py`**, multi-scene **`MinDissimilarityFitnessEvaluator`**, SAM zero-norm guard, **`map_elites/`** with CMA-ME and polish, **`analysis/robustness`** and plots, GA visualization **`parameters_to_curves`** hook.
+The active stack includes: **`SceneConfig`**, split **`ga/experiment.py`**, multi-scene **`MinDissimilarityFitnessEvaluator`**, SAM zero-norm guard, **`map_elites/`** with CMA-ME and polish, **`analysis/robustness`** and plots, GA visualization **`parameters_to_curves`** hook.
 
 Still optional or open, depending on project goals:
 
-- **Vectorized `simulate_sensor_output`** over substances — loop remains.
 - **Detector noise / calibration layers** — not first-class in core fitness unless added.
-- **RLC or Fabry–Pérot responsivity** — swap **`parameters_to_curves`** and gene layout; no RLC physics in-repo yet.
-- **`ga/tuning.py` size** — reduced by `experiment.py`; further split only if it helps maintenance.
+- **RLC or Fabry–Pérot responsivity** — an eventual alternative **`parameters_to_curves`** and gene layout. The supplied **`RLC Model/`** package is separate from the active LWI forward model and requires calibration/validation first; see **`docs/RLC_MODEL_TECHNICAL_ASSESSMENT.md`**.
+- **`ga/tuning.py` boundaries** — experiment wiring lives in `experiment.py`; further splitting should address a concrete maintenance need.
 
 Other Markdown files under **`docs/`** may include older narratives or superseded plans; **this file** is the implementation-aligned overview.

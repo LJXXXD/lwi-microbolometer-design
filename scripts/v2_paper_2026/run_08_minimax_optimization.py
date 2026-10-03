@@ -88,6 +88,8 @@ def main() -> None:
         if args.budget_multiplier is not None
         else _budgets.MINIMAX_BUDGET_MULTIPLIER
     )
+    if not np.isfinite(mult) or mult <= 0:
+        parser.error("--budget-multiplier / PRES_MINIMAX_MULT must be finite and positive.")
     if args.quick:
         total_budget = int(_budgets.quickrun_minimax() * mult)
         num_initial = _budgets.quickrun_cma_me()[1]
@@ -95,8 +97,10 @@ def main() -> None:
         total_budget = int(_budgets.MINIMAX_CMA_ME_TOTAL_EVALS * mult)
         num_initial = _budgets.MAP_ELITES_NUM_INITIAL
 
+    if total_budget < 1 or num_initial < 1:
+        parser.error("Minimax requires a positive total budget and initial archive size.")
     num_initial = min(int(num_initial), int(total_budget))
-    num_iterations = max(0, int(total_budget) - num_initial)
+    num_iterations = int(total_budget) - num_initial
 
     out_dir = _paths.step_output_dir(_paths.STEP_MINIMAX)
     tqdm.write(

@@ -15,6 +15,7 @@ def visualize_sensor_output(
     basis_funcs_labels: list[str] | None = None,
     fontsize: int = 10,
     figure_size: tuple[int, int] = (8, 6),
+    output_unit: str = "W/(m²·sr)",
 ) -> None:
     """
     Visualize sensor outputs as curves for different substances.
@@ -32,6 +33,9 @@ def visualize_sensor_output(
         Font size for text in the plot (default: 10)
     figure_size : Tuple[int, int], optional
         Figure size (width, height) in inches (default: (8, 6))
+    output_unit : str, optional
+        Integrated-radiance unit for dimensionless basis functions; override
+        when plotting an independently calibrated electrical response.
     """
     m, n = sensor_outputs.shape  # m = number of basis functions, n = number of substances
 
@@ -48,7 +52,7 @@ def visualize_sensor_output(
 
     # Add labels, title, and legend
     plt.xlabel("Basis Function Index", fontsize=fontsize)
-    plt.ylabel("Sensor Output Values (Volt)", fontsize=fontsize)
+    plt.ylabel(f"Sensor Output ({output_unit})", fontsize=fontsize)
     plt.title("Sensor Output Comparison", fontsize=fontsize + 2, fontweight="bold")
     plt.legend(loc="best", fontsize=fontsize)
 

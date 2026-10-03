@@ -437,12 +437,11 @@ def _mutate_discrete_gene(
     mutation_config: MutationConfig,
     progress: float,
     restart_rate: float,
-    random_generator: np.random.Generator,
 ) -> None:
     """Mutate a discrete/categorical gene."""
     vals = info["values"]
     # With some rate, restart by drawing randomly from allowed values
-    if random_generator.random() < restart_rate:
+    if np.random.random() < restart_rate:
         mutated[r, g] = np.random.choice(vals)
         return
 
@@ -454,7 +453,7 @@ def _mutate_discrete_gene(
             current_idx = int(np.where(vals == current_val)[0][0])
         except (IndexError, TypeError):
             # Value not found in vals or comparison failed, use random index
-            current_idx = int(random_generator.integers(0, len(vals)))
+            current_idx = int(np.random.randint(0, len(vals)))
 
         # Heavy-tailed step in index domain
         idx_scale = max(
@@ -471,9 +470,7 @@ def _mutate_discrete_gene(
         rounded_step = round(raw_step)
         idx_step = int(max(-max_jump, min(max_jump, rounded_step)))
         if idx_step == 0:
-            idx_step = (
-                1 if random_generator.random() < mutation_config.coin_flip_probability else -1
-            )
+            idx_step = 1 if np.random.random() < mutation_config.coin_flip_probability else -1
         new_idx = int(max(0, min(len(vals) - 1, current_idx + idx_step)))
         mutated[r, g] = vals[new_idx]
     except (IndexError, TypeError, ValueError):
@@ -493,27 +490,26 @@ def _mutate_continuous_gene(
     heavy_tail_rate: float,
     directional_rate: float,
     population_mean: np.ndarray,
-    random_generator: np.random.Generator,
 ) -> None:
     """Mutate a continuous/ranged gene."""
     current = float(mutated[r, g])
     step_sigma = base_step_frac * gene_range
 
     # With some rate, completely re-sample from space
-    if random_generator.random() < restart_rate:
+    if np.random.random() < restart_rate:
         new_val = _random_from_space(info)
         mutated[r, g] = _clip_and_quantize(new_val, info)
         return
 
     # Choose mutation kernel: heavy-tailed Cauchy vs Gaussian
-    use_heavy_tail = random_generator.random() < heavy_tail_rate
+    use_heavy_tail = np.random.random() < heavy_tail_rate
     if use_heavy_tail:
         step = float(np.random.standard_cauchy()) * step_sigma
     else:
         step = float(np.random.normal(loc=0.0, scale=step_sigma))
 
     # Optional directional push away from population mean to fight clustering
-    if random_generator.random() < directional_rate and population_mean.size:
+    if np.random.random() < directional_rate and population_mean.size:
         # Use comparison instead of np.sign for scalar (np.sign is for arrays)
         diff = current - float(population_mean[g])
         if diff > 0:
@@ -521,9 +517,7 @@ def _mutate_continuous_gene(
         elif diff < 0:
             direction = -1.0
         else:
-            direction = (
-                1.0 if random_generator.random() < mutation_config.coin_flip_probability else -1.0
-            )
+            direction = 1.0 if np.random.random() < mutation_config.coin_flip_probability else -1.0
         step += direction * mutation_config.directional_push_strength * step_sigma
 
     new_val = current + step
@@ -601,6 +595,7 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
     ...     ...
     ... )
     """
+    # PyGAD owns the run seed; all draws use the stream it initializes.
     if offspring is None or len(offspring) == 0:
         return offspring
 
@@ -613,7 +608,9 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
 
     # Build per-gene space info
     gene_space_raw = getattr(ga_instance, "gene_space", None)
-    gene_space_list = _ensure_gene_space_list(gene_space_raw, num_genes)
+    gene_space_list = _ensure_gene_space_list(
+        gene_space_raw, num_genes, nested=ga_instance.gene_space_nested
+    )
     space_infos = [_extract_gene_space_components(gene_space_list[g]) for g in range(num_genes)]
 
     # Calculate diversity score and get ranges
@@ -641,10 +638,9 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
     )
 
     # Apply mutations
-    random_generator = np.random.default_rng()
     for r in range(num_offspring):
         for g in range(num_genes):
-            if random_generator.random() > effective_gene_mutation_probability:
+            if np.random.random() > effective_gene_mutation_probability:
                 continue
 
             info = space_infos[g]
@@ -652,9 +648,7 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
 
             # Dispatch to discrete or continuous mutation handler
             if info["is_discrete"] and info["values"] is not None:
-                _mutate_discrete_gene(
-                    mutated, r, g, info, mutation_config, progress, restart_rate, random_generator
-                )
+                _mutate_discrete_gene(mutated, r, g, info, mutation_config, progress, restart_rate)
             else:
                 _mutate_continuous_gene(
                     mutated,
@@ -668,7 +662,6 @@ def diversity_preserving_mutation(offspring: np.ndarray, ga_instance: pygad.GA) 
                     heavy_tail_rate,
                     directional_rate,
                     population_mean,
-                    random_generator,
                 )
 
     return mutated
@@ -735,8 +728,10 @@ def _extract_gene_space_components(space_entry: Any) -> dict[str, Any]:
 
     if isinstance(space_entry, (list, tuple, np.ndarray)):
         # (low, high) tuple vs discrete list
-        if len(space_entry) == TUPLE_LENGTH_FOR_RANGE and all(
-            isinstance(x, (int, float, np.integer, np.floating)) for x in space_entry
+        if (
+            isinstance(space_entry, tuple)
+            and len(space_entry) == TUPLE_LENGTH_FOR_RANGE
+            and all(isinstance(x, (int, float, np.integer, np.floating)) for x in space_entry)
         ):
             low, high = space_entry
             result["low"] = float(low)
@@ -784,14 +779,10 @@ def _random_from_space(space_info: dict[str, Any]) -> int | float | Any:
         # Unbounded fallback: standard normal
         val = float(np.random.normal(0.0, 1.0))
     elif step is None:
-        # Use np.random.Generator for scalar uniform sampling (avoids mypy issues)
-        rng = np.random.default_rng()
-        val = float(rng.uniform(float(low), float(high)))
+        val = float(np.random.uniform(float(low), float(high)))
     else:
         # Sample from discretized grid uniformly
-        num_steps = max(1, int(np.floor((high - low) / step)))
-        idx = np.random.randint(0, num_steps + 1)
-        val = low + idx * step
+        val = float(np.random.choice(np.arange(low, high, step)))
 
     if space_info["is_integer"]:
         return round(val)
@@ -842,16 +833,16 @@ def _clip_and_quantize(value: int | float | Any, space_info: dict[str, Any]) -> 
         value = float(max(float(low), min(float(high), float(value))))
         if step is not None and step > 0:
             # Snap to nearest grid point
-            k = round((value - low) / step)
-            value = low + k * step
+            grid = np.arange(low, high, step)
+            value = float(grid[np.argmin(np.abs(grid - value))])
     if space_info["is_integer"]:
         return round(value)
     return float(value)
 
 
-def _ensure_gene_space_list(gene_space: Any, num_genes: int) -> list[Any]:
+def _ensure_gene_space_list(gene_space: Any, num_genes: int, *, nested: bool) -> list[Any]:
     """Return a per-gene list of gene_space entries regardless of original format."""
-    if isinstance(gene_space, list) and len(gene_space) == num_genes:
-        return gene_space
+    if nested:
+        return list(gene_space)
     # If a single dict/list provided, replicate across genes
     return [gene_space for _ in range(num_genes)]

@@ -53,7 +53,7 @@ def plot_multi_start_champions(
         set_tight_ylim_stacked_spectra(ax, min(y_mins), max(y_maxs))
 
     ax.set_xlabel("Wavelength (µm)", fontsize=12)
-    ax.set_ylabel("Absorptivity (offset applied)", fontsize=12)
+    ax.set_ylabel("Spectral Responsivity (scaled, offset applied)", fontsize=12)
     ax.set_title(
         f"Multi-start GA: {num_runs} independent runs — champions overlay\n"
         f"Mean pairwise chrom. distance: {mean_pairwise_distance:.4f} | "

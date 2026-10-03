@@ -64,14 +64,7 @@ import pygad
 from scipy.linalg import norm
 
 from lwi_microbolometer_design.ga.diversity import compute_population_distance_matrix
-
-# Optional Numba import check (for statistics reporting)
-try:
-    import numba  # noqa: F401
-
-    NUMBA_AVAILABLE = True
-except ImportError:
-    NUMBA_AVAILABLE = False
+from lwi_microbolometer_design.ga.mutations import MutationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +84,7 @@ class AdvancedGA(pygad.GA):
         sol_per_pop: int,
         num_genes: int,
         niching_config: NichingConfig | None = None,
+        mutation_config: MutationConfig | None = None,
         **kwargs: object,
     ) -> None:
         """Initialize AdvancedGA.
@@ -115,6 +109,9 @@ class AdvancedGA(pygad.GA):
         niching_config : NichingConfig, optional
             Enables fitness sharing. Default None (standard PyGAD behavior).
 
+        mutation_config : MutationConfig | None
+            Settings for diversity_preserving_mutation. None uses its defaults.
+
         **Additional PyGAD args:**
 
         **kwargs
@@ -122,6 +119,10 @@ class AdvancedGA(pygad.GA):
             crossover_type, parent_selection_type, keep_elitism, and many
             more). See PyGAD docs for full list.
         """
+        if mutation_config is not None and not isinstance(mutation_config, MutationConfig):
+            raise ValueError("mutation_config must be a MutationConfig or None.")
+        self.mutation_config = mutation_config
+
         # Niching configuration
         self.niching_config = niching_config
 
@@ -134,10 +135,6 @@ class AdvancedGA(pygad.GA):
         # Log niching configuration
         if self.niching_config and self.niching_config.enabled:
             if self.niching_config.use_optimal_pairing:
-                # Check if Numba acceleration is available
-                numba_status = (
-                    "Numba-accelerated" if NUMBA_AVAILABLE else "sequential (Numba not available)"
-                )
                 logger.info(
                     "Advanced GA initialized with niching enabled "
                     f"(sigma_share={self.niching_config.sigma_share}, "
@@ -145,13 +142,8 @@ class AdvancedGA(pygad.GA):
                     f"optimal_pairing=True, "
                     f"params_per_group={self.niching_config.params_per_group}, "
                     f"metric={self.niching_config.optimal_pairing_metric}, "
-                    f"mode={numba_status})"
+                    "backend=SciPy cdist + linear_sum_assignment)"
                 )
-                if not NUMBA_AVAILABLE:
-                    logger.warning(
-                        "Numba not available - optimal pairing will run ~2x slower. "
-                        "Install numba for better performance: pip install numba"
-                    )
             else:
                 logger.info(
                     "Advanced GA initialized with niching enabled "
@@ -194,31 +186,18 @@ class AdvancedGA(pygad.GA):
         # Store original fitness for elitism
         self.original_fitness_scores = self.last_generation_fitness.copy()
 
-        # Pre-compute distance matrix for efficiency
-        # Use unified distance matrix computation from ga.diversity module
-        if self.population is None or self.sol_per_pop == 0:
-            distance_matrix = np.zeros((0, 0))
-        else:
-            distance_matrix = compute_population_distance_matrix(
-                self.population, self.niching_config
-            )
-
-        # Apply fitness sharing: penalize each chromosome by its niche count
-        shared_fitness = np.zeros_like(self.original_fitness_scores)
-        for i in range(self.sol_per_pop):
-            # Calculate niche count (sum of sharing coefficients from neighbors)
-            niche_count = 1.0  # Start with self
-            for j in range(self.sol_per_pop):
-                if i != j:
-                    sharing_coeff = niche_sharing_coefficient(
-                        distance_matrix[i, j],
-                        self.niching_config.sigma_share,
-                        self.niching_config.alpha,
-                    )
-                    niche_count += sharing_coeff
-
-            # Divide fitness by niche count (crowded solutions get penalized)
-            shared_fitness[i] = self.original_fitness_scores[i] / niche_count
+        distance_matrix = compute_population_distance_matrix(self.population, self.niching_config)
+        if not np.all(np.isfinite(distance_matrix)):
+            raise ValueError("Niching distances must be finite.")
+        sharing = np.zeros_like(distance_matrix)
+        neighbors = distance_matrix < self.niching_config.sigma_share
+        sharing[neighbors] = (
+            1.0
+            - (distance_matrix[neighbors] / self.niching_config.sigma_share)
+            ** self.niching_config.alpha
+        )
+        np.fill_diagonal(sharing, 1.0)
+        shared_fitness = self.original_fitness_scores / sharing.sum(axis=1)
 
         # Store and track
         self.shared_fitness_scores = shared_fitness
@@ -247,11 +226,9 @@ class AdvancedGA(pygad.GA):
         shared_fitness_scores = self._calculate_shared_fitness()
         self.last_generation_fitness = shared_fitness_scores
 
-        # PyGAD parent selection with shared fitness
-        super().run_select_parents(call_on_parents=call_on_parents)
-
-        # Restore original fitness for elitism
-        if self.original_fitness_scores is not None:
+        try:
+            super().run_select_parents(call_on_parents=call_on_parents)
+        finally:
             self.last_generation_fitness = self.original_fitness_scores
 
     def get_statistics(self) -> dict[str, object]:
@@ -374,7 +351,7 @@ class AdvancedGA(pygad.GA):
                 stats["niching"]["optimal_pairing_metric"] = (
                     self.niching_config.optimal_pairing_metric
                 )
-                stats["niching"]["numba_accelerated"] = NUMBA_AVAILABLE
+                stats["niching"]["numba_accelerated"] = False
 
             # Original fitness (before sharing)
             if self.original_fitness_scores is not None:
@@ -457,11 +434,11 @@ class NichingConfig:
 
         Ensures positive parameters and supported metric choices.
         """
-        if self.sigma_share <= 0:
-            msg = "sigma_share must be > 0"
+        if not np.isfinite(self.sigma_share) or self.sigma_share <= 0:
+            msg = "sigma_share must be finite and > 0"
             raise ValueError(msg)
-        if self.alpha <= 0:
-            msg = "alpha must be > 0"
+        if not np.isfinite(self.alpha) or self.alpha <= 0:
+            msg = "alpha must be finite and > 0"
             raise ValueError(msg)
         if not self.use_optimal_pairing and self.distance_metric not in {"euclidean"}:
             msg = f"Unsupported distance_metric: {self.distance_metric!r}. Supported: 'euclidean'"

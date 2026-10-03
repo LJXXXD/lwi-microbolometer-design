@@ -48,7 +48,11 @@ def normalize_ordered_dissimilarity(d: np.ndarray) -> np.ndarray:
     Matches the usual VAT image scaling assumption in the CLODD paper.
     """
     d = np.asarray(d, dtype=np.float64)
+    if d.ndim != 2 or d.shape[0] != d.shape[1] or not np.all(np.isfinite(d)):
+        raise ValueError("Ordered dissimilarity must be a finite square matrix.")
     n = d.shape[0]
+    if n < 2:
+        return np.zeros_like(d)
     mask = ~np.eye(n, dtype=bool)
     vals = d[mask]
     lo, hi = float(np.min(vals)), float(np.max(vals))
@@ -294,6 +298,14 @@ def clodd_partition(
         ``auto`` picks exhaustive when the work estimate is below ``exhaustive_max_work``.
     """
     d_star = np.asarray(d_ordered, dtype=np.float64)
+    if d_star.ndim != 2 or d_star.shape[0] != d_star.shape[1] or not np.all(np.isfinite(d_star)):
+        raise ValueError("CLODD requires a finite square dissimilarity matrix.")
+    if mode not in ("auto", "exhaustive", "pso"):
+        raise ValueError("mode must be auto, exhaustive, or pso.")
+    if not np.isfinite(alpha) or not 0 <= alpha <= 1:
+        raise ValueError("alpha must be finite and within [0, 1].")
+    if gamma is not None and not np.isfinite(gamma):
+        raise ValueError("gamma must be finite.")
     n = d_star.shape[0]
     if n < 3:
         raise ValueError("CLODD requires at least 3 objects (n >= 3).")
@@ -310,6 +322,9 @@ def clodd_partition(
     use_exhaustive = mode == "exhaustive" or (
         mode == "auto" and _exhaustive_work_estimate(n, c_max) <= exhaustive_max_work
     )
+
+    if not use_exhaustive and (n_particles < 1 or max_iter < 0):
+        raise ValueError("PSO requires positive n_particles and nonnegative max_iter.")
 
     for c in range(2, c_max + 1):
         if use_exhaustive:

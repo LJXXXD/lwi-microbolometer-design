@@ -212,7 +212,9 @@ def analyze_population_diversity(
         Default: None (uses standard Euclidean if no niching_config)
     niching_config : Optional[Any], optional
         Niching configuration from AdvancedGA. If provided, population spread metrics
-        will use the same distance calculation as the GA (respects optimal pairing).
+        controls reported within-cluster and population-spread distances.
+        Cluster assignments use Euclidean distance on standardized gene
+        positions and remain sensitive to basis ordering.
         Default: None (uses standard Euclidean distance)
     analysis_config : AnalysisConfig, optional
         Configuration object for analysis parameters. If None, uses DEFAULT_ANALYSIS_CONFIG.
@@ -234,7 +236,7 @@ def analyze_population_diversity(
     config = analysis_config if analysis_config is not None else DEFAULT_ANALYSIS_CONFIG
 
     # Sort solutions by fitness (descending)
-    final_population.sort(key=lambda x: x.fitness, reverse=True)
+    final_population = sorted(final_population, key=lambda x: x.fitness, reverse=True)
     population_size = len(final_population)
 
     # Extract fitness values and population genes
@@ -329,7 +331,7 @@ def analyze_population_diversity(
 
 def _calculate_top_n(population_size: int, percentage: float, min_n: int, max_n: int) -> int:
     """Calculate top_n with percentage and bounds."""
-    return max(min_n, min(max_n, int(population_size * percentage)))
+    return min(population_size, max(min_n, min(max_n, int(population_size * percentage))))
 
 
 def _extend_analysis_config_with_calculated_values(
@@ -546,11 +548,14 @@ def _perform_clustering_analysis(
     if optimal_k > 1:
         kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
         kmeans_labels = kmeans.fit_predict(scaled_genes)
-        clustering_results["kmeans"] = {
-            "labels": kmeans_labels,
-            "n_clusters": optimal_k,
-            "inertia": kmeans.inertia_,
-        }
+        unique_labels = np.unique(kmeans_labels)
+        if 1 < unique_labels.size < len(scaled_genes):
+            clustering_results["kmeans"] = {
+                "labels": kmeans_labels,
+                "n_clusters": int(unique_labels.size),
+                "silhouette_score": float(silhouette_score(scaled_genes, kmeans_labels)),
+                "inertia": kmeans.inertia_,
+            }
 
     # Method 2: DBSCAN with adaptive parameters
     dbscan_results = _adaptive_dbscan(scaled_genes)

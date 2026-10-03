@@ -57,9 +57,15 @@ def main() -> None:
         max_workers = min(2, num_runs)
     else:
         num_runs = _budgets.MULTI_START_NUM_RUNS
-        num_generations = _budgets.GA_NUM_GENERATIONS_STANDARD
-        sol_per_pop = _budgets.GA_SOL_PER_POP_STANDARD
-        max_workers = args.max_workers or min(num_runs, _budgets.MULTI_START_MAX_WORKERS)
+        num_generations = _budgets.MULTI_START_GENERATIONS
+        sol_per_pop = _budgets.MULTI_START_POP
+        max_workers = min(num_runs, _budgets.MULTI_START_MAX_WORKERS)
+
+    if args.max_workers is not None:
+        max_workers = args.max_workers
+    if min(num_runs, num_generations, sol_per_pop, max_workers) < 1:
+        parser.error("Runs, generations, population size and workers must be positive.")
+    max_workers = min(num_runs, max_workers)
 
     out_dir = _paths.step_output_dir(_paths.STEP_MULTI_START_GA)
     tqdm.write(

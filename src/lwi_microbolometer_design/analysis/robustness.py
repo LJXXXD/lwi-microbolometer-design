@@ -1,7 +1,7 @@
 """Environmental robustness evaluation for optimised sensor designs.
 
 Evaluates how sensor fitness degrades under varying environmental
-conditions (temperature, atmospheric distance, noise).  This module
+conditions (temperature, atmospheric distance, refractive index).  This module
 implements **Phase 1** of the robustness roadmap: non-invasive testing
 of existing elite designs across a grid of environmental parameters.
 
@@ -11,7 +11,7 @@ statistics (mean, min, std, coefficient of variation).
 
 References
 ----------
-Roadmap item 1 in ``docs/CODEBASE_WALKTHROUGH_AND_STRATEGY.md``, lines 226-244.
+``docs/THEORY_AND_IMPLEMENTATION.md``, Sections 6.5 and 12.
 """
 
 from __future__ import annotations
@@ -20,18 +20,16 @@ import logging
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from tqdm import tqdm
 
-from lwi_microbolometer_design.analysis import (
-    compute_distance_matrix,
-    min_based_dissimilarity_score,
-    spectral_angle_mapper,
-)
+from lwi_microbolometer_design.analysis.distance_metrics import spectral_angle_mapper
 from lwi_microbolometer_design.data.scene_config import SceneConfig
-from lwi_microbolometer_design.simulation import simulate_sensor_output
+
+if TYPE_CHECKING:
+    from lwi_microbolometer_design.ga.fitness import MinDissimilarityFitnessEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -175,13 +173,16 @@ def find_nominal_scene_index(
     """
     for i, s in enumerate(scenes):
         if (
-            math.isclose(s.temperature_k, nominal.temperature_k, abs_tol=abs_temp_k)
+            math.isclose(s.temperature_k, nominal.temperature_k, abs_tol=abs_temp_k, rel_tol=0.0)
             and math.isclose(
                 s.atmospheric_distance_ratio,
                 nominal.atmospheric_distance_ratio,
                 abs_tol=abs_dist,
+                rel_tol=0.0,
             )
-            and math.isclose(s.air_refractive_index, nominal.air_refractive_index, abs_tol=abs_n)
+            and math.isclose(
+                s.air_refractive_index, nominal.air_refractive_index, abs_tol=abs_n, rel_tol=0.0
+            )
         ):
             return i
     msg = (
@@ -249,22 +250,50 @@ def evaluate_elite_fitness(
     float
         Scalar fitness (min-based dissimilarity score).
     """
-    basis_params = [
-        tuple(chromosome[i : i + params_per_basis_function])
-        for i in range(0, len(chromosome), params_per_basis_function)
-    ]
-    basis_functions = parameters_to_curves(basis_params, scene.wavelengths)
-    sensor_outputs = simulate_sensor_output(
-        wavelengths=scene.wavelengths,
-        substances_emissivity=scene.emissivity_curves,
-        basis_functions=basis_functions,
-        temperature_k=scene.temperature_k,
-        atmospheric_distance_ratio=scene.atmospheric_distance_ratio,
-        air_refractive_index=scene.air_refractive_index,
-        air_transmittance=scene.air_transmittance,
+    # Local import keeps analysis usable while the package exports GA symbols.
+    from lwi_microbolometer_design.ga.fitness import MinDissimilarityFitnessEvaluator
+
+    evaluator = MinDissimilarityFitnessEvaluator(
+        scene, parameters_to_curves, params_per_basis_function, distance_metric
     )
-    distance_matrix = compute_distance_matrix(sensor_outputs, distance_func=distance_metric, axis=1)
-    return float(min_based_dissimilarity_score(distance_matrix=distance_matrix))
+    return evaluator.fitness_func(None, chromosome, 0)
+
+
+def _scene_evaluators(
+    scenes: Sequence[SceneConfig],
+    parameters_to_curves: Callable,
+    params_per_basis_function: int,
+    distance_metric: Callable,
+) -> list[MinDissimilarityFitnessEvaluator]:
+    """Prepare the shared fitness contract once per environmental condition."""
+    from lwi_microbolometer_design.ga.fitness import MinDissimilarityFitnessEvaluator
+
+    if len(scenes) == 0:
+        raise ValueError("Robustness evaluation requires at least one scene.")
+    return [
+        MinDissimilarityFitnessEvaluator(
+            scene, parameters_to_curves, params_per_basis_function, distance_metric
+        )
+        for scene in scenes
+    ]
+
+
+def _robustness_result(
+    elite_id: int,
+    chromosome: np.ndarray,
+    nominal_fitness: float,
+    evaluators: Sequence[MinDissimilarityFitnessEvaluator],
+) -> RobustnessResult:
+    """Build one result using the same evaluator semantics as optimization."""
+    return RobustnessResult(
+        elite_id=elite_id,
+        chromosome=np.asarray(chromosome).copy(),
+        nominal_fitness=nominal_fitness,
+        condition_labels=[ConditionLabel.from_scene(e.scene) for e in evaluators],
+        fitness_per_condition=np.array(
+            [e.fitness_func(None, chromosome, 0) for e in evaluators], dtype=np.float64
+        ),
+    )
 
 
 def evaluate_elite_robustness(
@@ -300,28 +329,10 @@ def evaluate_elite_robustness(
     RobustnessResult
         Fitness values and summary statistics across all conditions.
     """
-    condition_labels = [ConditionLabel.from_scene(s) for s in scenes]
-    fitnesses = np.array(
-        [
-            evaluate_elite_fitness(
-                chromosome=chromosome,
-                scene=scene,
-                parameters_to_curves=parameters_to_curves,
-                params_per_basis_function=params_per_basis_function,
-                distance_metric=distance_metric,
-            )
-            for scene in scenes
-        ],
-        dtype=np.float64,
+    evaluators = _scene_evaluators(
+        scenes, parameters_to_curves, params_per_basis_function, distance_metric
     )
-
-    return RobustnessResult(
-        elite_id=elite_id,
-        chromosome=chromosome.copy(),
-        nominal_fitness=nominal_fitness,
-        condition_labels=condition_labels,
-        fitness_per_condition=fitnesses,
-    )
+    return _robustness_result(elite_id, chromosome, nominal_fitness, evaluators)
 
 
 def evaluate_solutions_robustness(
@@ -367,6 +378,11 @@ def evaluate_solutions_robustness(
     list[RobustnessResult]
         One result per evaluated solution, sorted by nominal fitness descending.
     """
+    if top_n is not None and top_n < 1:
+        raise ValueError("top_n must be positive or None.")
+    evaluators = _scene_evaluators(
+        scenes, parameters_to_curves, params_per_basis_function, distance_metric
+    )
     sorted_solutions = sorted(solutions, key=lambda x: x["fitness"], reverse=True)
     if top_n is not None:
         sorted_solutions = sorted_solutions[:top_n]
@@ -391,15 +407,7 @@ def evaluate_solutions_robustness(
 
     results: list[RobustnessResult] = []
     for rank, sol in enumerate(iterator):
-        result = evaluate_elite_robustness(
-            elite_id=rank,
-            chromosome=sol["chromosome"],
-            nominal_fitness=sol["fitness"],
-            scenes=scenes,
-            parameters_to_curves=parameters_to_curves,
-            params_per_basis_function=params_per_basis_function,
-            distance_metric=distance_metric,
-        )
+        result = _robustness_result(rank, sol["chromosome"], sol["fitness"], evaluators)
         results.append(result)
 
     return results
@@ -474,6 +482,8 @@ def summarise_robustness(results: list[RobustnessResult]) -> dict[str, Any]:
         ``mean_cv``, ``mean_nominal``, ``mean_worst_case``,
         ``mean_best_case``.
     """
+    if not results:
+        raise ValueError("Cannot summarise an empty robustness result set.")
     retentions = np.array([r.retention_ratio for r in results])
     cvs = np.array([r.cv_fitness for r in results])
     nominals = np.array([r.nominal_fitness for r in results])

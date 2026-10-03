@@ -21,15 +21,16 @@ import logging
 import pickle
 import sys
 from pathlib import Path
-
-import numpy as np
+from dataclasses import replace
 
 from lwi_microbolometer_design import (
     gaussian_parameters_to_unit_amplitude_curves,
     spectral_angle_mapper,
 )
 from lwi_microbolometer_design.analysis.robustness import (
+    align_nominal_fitness_to_training_scene,
     evaluate_archive_robustness,
+    find_nominal_scene_index,
     summarise_robustness,
 )
 from lwi_microbolometer_design.data import load_substance_atmosphere_data
@@ -120,23 +121,18 @@ def main() -> None:
     num_conditions = len(scenes)
     print(f"  Total conditions: {num_conditions}")
 
-    # Identify which scene index corresponds to nominal
-    nominal_idx = None
-    for i, s in enumerate(scenes):
-        if (
-            np.isclose(s.temperature_k, NOMINAL_TEMPERATURE_K)
-            and np.isclose(s.atmospheric_distance_ratio, NOMINAL_DISTANCE_RATIO)
-            and np.isclose(s.air_refractive_index, NOMINAL_REFRACTIVE_INDEX)
-        ):
-            nominal_idx = i
-            break
-    if nominal_idx is not None:
-        print(
-            f"  Nominal condition at index {nominal_idx}: "
-            f"T={NOMINAL_TEMPERATURE_K}K, d={NOMINAL_DISTANCE_RATIO}"
-        )
-    else:
-        logger.warning("Nominal condition not found in grid; using archive fitness as nominal.")
+    nominal = replace(
+        scenes[0],
+        temperature_k=NOMINAL_TEMPERATURE_K,
+        atmospheric_distance_ratio=NOMINAL_DISTANCE_RATIO,
+        air_refractive_index=NOMINAL_REFRACTIVE_INDEX,
+    )
+    nominal_idx = find_nominal_scene_index(scenes, nominal)
+    print(
+        f"  Nominal condition at index {nominal_idx}: "
+        f"T={nominal.temperature_k} K, d={nominal.atmospheric_distance_ratio}, "
+        f"n={nominal.air_refractive_index}"
+    )
 
     # ------------------------------------------------------------------
     # [3/5] Evaluate robustness
@@ -154,6 +150,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # [4/5] Summary statistics
     # ------------------------------------------------------------------
+    align_nominal_fitness_to_training_scene(results, scenes, nominal)
     summary = summarise_robustness(results)
     print("\n[4/5] Robustness Summary:")
     print(f"  Elites evaluated:       {summary['num_elites']}")
@@ -228,15 +225,16 @@ def main() -> None:
     print("=" * 80)
     retention_pct = summary["mean_retention_ratio"] * 100
     if retention_pct >= 90:
-        verdict = "EXCELLENT - designs are highly robust to environmental variation"
+        verdict = "EXCELLENT model-score retention on the tested grid"
     elif retention_pct >= 75:
-        verdict = "GOOD - moderate degradation; robust optimisation (Phase 2) recommended"
+        verdict = "GOOD model-score retention; robust optimization may improve grid performance"
     elif retention_pct >= 50:
-        verdict = "CONCERNING - significant degradation; Phase 2 robust optimisation needed"
+        verdict = "CONCERNING model-score degradation on the tested grid"
     else:
-        verdict = "POOR - severe degradation; fundamental approach review recommended"
+        verdict = "POOR model-score retention on the tested grid"
     print(f"\nVerdict: {verdict}")
     print(f"Mean fitness retention: {retention_pct:.1f}%")
+    print("This tests SAM within the forward model; it does not validate identification accuracy.")
     print(f"\nOutputs saved to: {output_dir}/")
     print("=" * 80)
 

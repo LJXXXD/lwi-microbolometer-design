@@ -59,7 +59,10 @@ def calculate_optimal_pairing_distance(
         and takes precedence over metric.
     metric_params : Optional[Dict[str, Any]]
         Parameters for metric (e.g., {"p": 3} for Minkowski,
-        {"cov_matrix": matrix} for Mahalanobis).
+        {"cov_matrix": matrix} for Mahalanobis). A singular Mahalanobis
+        covariance uses its pseudoinverse; distances then ignore null-space
+        directions. Supply a full-rank covariance when that interpretation is
+        unsuitable.
 
     Returns
     -------
@@ -110,19 +113,9 @@ def calculate_optimal_pairing_distance(
             )
 
         a, b = _ensure_2d_numeric_arrays(items_a, items_b)
-        try:
-            pairwise_distances = _pairwise_distances_vectorized(
-                a=a, b=b, metric=metric, metric_params=metric_params
-            )
-        except Exception as exc:
-            # Vectorization failed - user needs to provide custom function
-            warnings.warn(
-                f"Vectorized metric computation failed ({exc!s}). "
-                f"Use distance_func parameter for custom distance functions.",
-                UserWarning,
-                stacklevel=2,
-            )
-            raise
+        pairwise_distances = _pairwise_distances_vectorized(
+            a=a, b=b, metric=metric, metric_params=metric_params
+        )
 
     # Find optimal pairing using Hungarian algorithm and return total distance
     row_indices, col_indices = linear_sum_assignment(pairwise_distances)
@@ -179,6 +172,7 @@ def _cdist_arrays_and_kwargs(
         if cov_matrix is None:
             combined = np.vstack([a, b])
             cov_matrix = np.cov(combined.T)
+        cov_matrix = np.atleast_2d(cov_matrix)
         try:
             kwargs["VI"] = np.linalg.inv(cov_matrix)
         except np.linalg.LinAlgError:

@@ -2,8 +2,8 @@
 """Ensemble Strategy: Run 20 Independent GAs to Find Multiple Distinct Peaks.
 
 This script runs multiple independent GA instances in parallel, each converging
-to its own peak. This guarantees finding distinct high-performing solution families
-without relying on niching within a single population.
+to a seed-dependent optimum. Multiple starts can expose distinct solution families;
+their number and quality must be measured from the resulting champions.
 """
 
 import multiprocessing as mp

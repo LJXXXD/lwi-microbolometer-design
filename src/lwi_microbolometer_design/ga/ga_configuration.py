@@ -14,8 +14,8 @@ from typing import Any
 
 import pandas as pd
 
-from .advanced_ga import NichingConfig
-from .mutations import diversity_preserving_mutation
+from lwi_microbolometer_design.ga.advanced_ga import NichingConfig
+from lwi_microbolometer_design.ga.mutations import diversity_preserving_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def create_ga_config(
     save_best_solutions : bool, optional
         Whether to track best solutions over generations (default: True)
     stop_criteria : str, optional
-        Stopping criteria (default: 'saturate_200')
+        Stopping criteria (default: 'saturate_1000')
     niching_enabled : bool, optional
         Whether to enable fitness sharing/niching (default: True)
     niching_use_optimal_pairing : bool, optional
@@ -203,7 +203,9 @@ def load_ga_configuration_from_csv(
         logger.warning(f"Row index {row_index} out of range. Using first row.")
         row_index = 0
 
-    raw_config = df.iloc[row_index]
+    raw_config = df.iloc[row_index].copy()
+    if "K_tournament" not in raw_config and "k_tournament" in raw_config:
+        raw_config["K_tournament"] = raw_config["k_tournament"]
     default_config = create_ga_config()
 
     # Extract configuration from CSV
@@ -236,7 +238,7 @@ def _extract_config_from_csv(
     # Helper function to extract parameter from CSV or use default
     def get_param(param_name: str, param_type: type, default_value: Any) -> Any:
         """Extract parameter from CSV or return default."""
-        if param_name in raw_config.index:
+        if param_name in raw_config.index and not pd.isna(raw_config[param_name]):
             value = raw_config[param_name]
             # Handle boolean strings from CSV (pd.read_csv doesn't auto-convert them)
             # Without this, CSV "False" → Python True (wrong!) because bool("False") = True
@@ -246,8 +248,7 @@ def _extract_config_from_csv(
                     return True
                 if lower_val in ["false", "0", "no"]:
                     return False
-                # Unknown string, use default type conversion
-                return param_type(value)
+                raise ValueError(f"Invalid boolean for {param_name}: {value!r}")
             return param_type(value)
         missing_params.append(param_name)
         return default_value
@@ -274,8 +275,12 @@ def _extract_config_from_csv(
     config_kwargs["crossover_probability"] = get_param(
         "crossover_probability", float, default_config["crossover_probability"]
     )
-    # Note: mutation_type from CSV would be a string, but we default to function
-    # This is handled in create_ga_config if needed
+    mutation_type = get_param("mutation_type", str, "diversity_preserving_mutation")
+    config_kwargs["mutation_type"] = (
+        diversity_preserving_mutation
+        if mutation_type == "diversity_preserving_mutation"
+        else mutation_type
+    )
     config_kwargs["mutation_probability"] = get_param(
         "mutation_probability", float, default_config["mutation_probability"]
     )

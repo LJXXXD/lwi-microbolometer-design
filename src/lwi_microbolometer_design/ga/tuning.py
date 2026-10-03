@@ -21,10 +21,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .advanced_ga import AdvancedGA
-from .diversity import calculate_population_diversity
-from .ga_configuration import create_ga_config
-from .mutations import diversity_preserving_mutation
+from lwi_microbolometer_design.ga.advanced_ga import AdvancedGA
+from lwi_microbolometer_design.ga.diversity import calculate_population_diversity
+from lwi_microbolometer_design.ga.ga_configuration import create_ga_config
+from lwi_microbolometer_design.ga.mutations import diversity_preserving_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,9 @@ class GenerationTracker:
         mean_fitness = float(np.mean(ga_instance.last_generation_fitness))
         self.mean_fitness_history.append(mean_fitness)
 
-        diversity = calculate_population_diversity(ga_instance.population)
+        diversity = calculate_population_diversity(
+            ga_instance.population, ga_instance.niching_config
+        )
         self.diversity_history.append(diversity)
 
         if hasattr(ga_instance, "best_solutions_fitness") and ga_instance.best_solutions_fitness:
@@ -133,7 +135,7 @@ class TuningResult:
     diversity_score : float
         Final population diversity
     convergence_generation : int
-        Generation when best fitness was first achieved
+        Zero-based tracked generation first reaching 99% of final best fitness
     high_quality_solutions : int
         Number of solutions with fitness > threshold
     """
@@ -180,16 +182,16 @@ def run_single_configuration(
     TuningResult
         Aggregated results from multiple runs
     """
+    if not isinstance(num_runs, (int, np.integer)) or num_runs < 1:
+        raise ValueError("num_runs must be a positive integer.")
     best_fitnesses = []
     mean_fitnesses = []
     diversity_scores = []
     convergence_generations = []
     high_quality_counts = []
-    random_seeds = []
 
     for run_idx in range(num_runs):
         random_seed = random_seed_base + run_idx
-        random_seeds.append(random_seed)
 
         # CRITICAL: Set numpy random seed explicitly for reproducibility in multiprocessing
         # This ensures each worker process has a properly initialized random state
@@ -294,6 +296,7 @@ class HyperparameterTuner:
         num_runs: int = 5,
         fitness_threshold: float = 45.0,
         max_workers: int | None = None,
+        random_seed_base: int = 42,
     ):
         """
         Initialize hyperparameter tuner.
@@ -313,15 +316,22 @@ class HyperparameterTuner:
         fitness_threshold : float
             Threshold for high-quality solutions
         max_workers : int | None
-            Maximum number of parallel workers (defaults to min(cpu_count(), 12))
+            Maximum number of parallel workers (defaults to cpu_count()).
+        random_seed_base : int
+            Each independent run uses random_seed_base + run index.
         """
         self.fitness_func = fitness_func
         self.gene_space = gene_space
         self.search_space = search_space
         self.params_per_basis_function = params_per_basis_function
+        if num_runs < 1:
+            raise ValueError("num_runs must be positive.")
         self.num_runs = num_runs
+        self.random_seed_base = random_seed_base
         self.fitness_threshold = fitness_threshold
-        self.max_workers = max_workers or mp.cpu_count()
+        self.max_workers = mp.cpu_count() if max_workers is None else max_workers
+        if self.max_workers < 1:
+            raise ValueError("max_workers must be positive.")
 
         logger.info(f"Initialized HyperparameterTuner with {self.max_workers} workers")
         logger.info(f"Will run {num_runs} independent runs per configuration")
@@ -378,14 +388,6 @@ class HyperparameterTuner:
             if config["keep_elitism"] >= config["sol_per_pop"]:
                 continue
 
-            # Handle conditional parameters
-            # K_tournament only matters if using tournament selection
-            parent_selection: Any = config.get("parent_selection_type")
-            # Check if parent_selection is a string equal to 'tournament'
-            # Note: K_tournament is kept in config but won't be used if not tournament selection
-            # This is intentional - the config is valid even if K_tournament is ignored
-            _is_tournament = isinstance(parent_selection, str) and parent_selection == "tournament"
-
             configs.append(config)
 
         logger.info(f"Generated {len(configs)} valid configurations")
@@ -407,7 +409,7 @@ class HyperparameterTuner:
         """
         if output_dir is None:
             output_dir = Path("outputs/tuning/hyperparameter_tuning_results")
-        output_dir.mkdir(exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate configurations
         configurations = self.generate_configurations()
@@ -429,6 +431,7 @@ class HyperparameterTuner:
                     self.params_per_basis_function,
                     self.num_runs,
                     self.fitness_threshold,
+                    self.random_seed_base,
                 ): config
                 for config in configurations
             }
@@ -445,6 +448,9 @@ class HyperparameterTuner:
                 except Exception as e:
                     config = future_to_config[future]
                     logger.error(f"Configuration failed: {config}, Error: {e}")
+
+        if not results:
+            raise RuntimeError("No tuning configuration completed successfully.")
 
         # Convert to DataFrame
         results_data = []
@@ -478,6 +484,9 @@ class HyperparameterTuner:
             "total_configurations": len(configurations),
             "total_runs": len(configurations) * self.num_runs,
             "num_runs_per_config": self.num_runs,
+            "random_seed_base": self.random_seed_base,
+            "successful_configurations": len(results),
+            "failed_configurations": len(configurations) - len(results),
             "fitness_threshold": self.fitness_threshold,
             "best_configuration": df_results.iloc[0].to_dict(),
             "top_5_configurations": df_results.head(5).to_dict("records"),

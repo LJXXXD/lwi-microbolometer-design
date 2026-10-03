@@ -15,7 +15,7 @@ Running **all eight jobs at once** will oversubscribe the CPU (especially step 0
 1. **Wave A (parallel):** 01, 02, 03 (default pool = `min(runs, min(CPU, cap))`; override with `--max-workers`), 06, 08
 2. **Wave B:** 04 (heavy MAP-Elites)
 3. **Wave C:** 05 (includes another full MAP-Elites + HC pool)
-4. **Wave D:** 07 **after** 06 finishes (needs `06_cma_me/cma_me_archive.pkl`)
+4. **Wave D:** 07 **after** 05 finishes (default input: `05_map_elites_hc/map_elites_archive.pkl`, before HC); use `--archive` to select the CMA-ME archive from 06
 
 ## Environment overrides
 
@@ -27,11 +27,14 @@ Running **all eight jobs at once** will oversubscribe the CPU (especially step 0
 | `PRES_GA_GENERATIONS_ADVANCED` | Step 02 (niching GA) generations |
 | `PRES_GA_POP_ADVANCED` | Step 02 population |
 | `PRES_MULTI_START_RUNS` | Step 03 number of independent GAs |
+| `PRES_MULTI_START_GENS` | Step 03 generations per run; defaults to step 01 |
+| `PRES_MULTI_START_POP` | Step 03 population per run; defaults to step 01 |
 | `PRES_MULTI_START_WORKERS_CAP` | Upper bound on step 03 default pool (`min(CPU, cap)`); default `200` |
 | `PRES_MULTI_START_WORKERS` | Step 03 explicit process pool size (overrides default) |
 | `PRES_HC_WORKERS_CAP` | Upper bound on step 05 HC default pool; default `49` (under 50 cores) |
 | `PRES_HC_WORKERS` | Step 05 explicit HC pool size |
-| `PRES_MAP_ELITES_ITERS` | Steps 04–05 MAP-Elites iterations |
+| `PRES_MAP_ELITES_TOTAL_EVALS` | Steps 04–05 total calls, including initial seeds |
+| `PRES_MAP_ELITES_INITIAL` | Initial seed count, at most the total budget |
 | `PRES_CMA_ME_EVALS` | Step 06 total fitness evaluations |
 | `PRES_MINIMAX_EVALS` | Step 08 total evaluations (each ×25 scenes) |
 

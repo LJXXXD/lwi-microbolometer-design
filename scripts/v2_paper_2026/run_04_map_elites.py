@@ -52,8 +52,7 @@ def main() -> None:
     if args.quick:
         num_iterations, num_initial = _budgets.quickrun_map_elites()
     else:
-        num_iterations = _budgets.MAP_ELITES_ITERATIONS
-        num_initial = _budgets.MAP_ELITES_NUM_INITIAL
+        num_iterations, num_initial = _budgets.map_elites_budget()
 
     total_evals = num_initial + num_iterations
     out_dir = _paths.step_output_dir(_paths.STEP_MAP_ELITES)
