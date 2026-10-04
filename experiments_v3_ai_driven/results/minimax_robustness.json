@@ -1,0 +1,41 @@
+{
+  "num_elites": 64,
+  "num_conditions": 25,
+  "mean_retention_ratio": 0.9751266233875138,
+  "worst_retention_ratio": 0.9245206501938954,
+  "mean_cv": 0.012878720413520957,
+  "mean_nominal": 45.408237249799974,
+  "mean_worst_case": 44.23890710822106,
+  "mean_best_case": 45.90147362007831,
+  "archive_source": "/Users/lj/Library/Mobile Documents/com~apple~CloudDocs/Developer/lwi-microbolometer-design/outputs/v2_paper_2026/08_minimax_optimization/map_elites_archive.pkl",
+  "archive_label": "08_minimax_optimization MAP-Elites (worst-case-over-25-scenes objective)",
+  "grid": {
+    "temperatures_k": [
+      273.15,
+      283.15,
+      293.15,
+      303.15,
+      313.15
+    ],
+    "distance_ratios": [
+      0.05,
+      0.08,
+      0.11,
+      0.15,
+      0.2
+    ],
+    "refractive_indices": [
+      1.0
+    ],
+    "num_conditions": 25,
+    "top_n_elites": 64
+  },
+  "wall_time_seconds": 0.16169370799616445,
+  "nominal_archive_comparison": {
+    "source": "07_robustness_test/robustness_summary.json (step-05 nominal MAP-Elites+HC archive)",
+    "mean_retention_ratio": 0.916954940185984,
+    "worst_retention_ratio": 0.7164442229889023,
+    "mean_nominal": 48.590298605720434,
+    "mean_worst_case": 44.58635432261729
+  }
+}

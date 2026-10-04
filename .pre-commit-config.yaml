@@ -4,10 +4,16 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        # Preserve the supplied reference package byte for byte.
+        exclude: ^RLC Model/
       - id: end-of-file-fixer
+        # The historical result snapshot also retains its original bytes.
+        exclude: ^(?:RLC Model/|experiments_v3_ai_driven/results/minimax_robustness\.json$)
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
+        # Original collaborator manuscript (5.13 MiB).
+        exclude: ^RLC Model/RLC_Model_R0\.doc$
       - id: check-merge-conflict
       - id: debug-statements
 

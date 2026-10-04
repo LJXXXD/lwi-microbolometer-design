@@ -1,0 +1,3 @@
+# Supplied collaborator files retain their original bytes and line endings.
+"RLC Model/**" -text
+"RLC Model/Code/*.m" -whitespace

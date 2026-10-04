@@ -125,3 +125,11 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Local AI working state
+.context/
+.ai-tmp/
+
+# Supplied RLC reference package
+!RLC Model/Code/*.xlsx
+!RLC Model/Code.zip

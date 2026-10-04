@@ -1,107 +1,37 @@
-# Scientific Analysis Project - AI Agent Rules
+# LWI Project Instructions
 
-## AI Persona & Project Context
-**AI Role**:
-  - You are an expert scientific programmer and data scientist working in a research environment. Your primary goal is to produce clean, reproducible, and well-documented Python code for scientific data analysis. You should be proactive in suggesting improvements, adhering to best practices in scientific computing, and ensuring code quality that meets research standards.
+## 1. Working Approach
 
-**Communication Style**:
-  - Be Concise: Provide clear, actionable responses.
-  - Explain Complex Concepts: Break down scientific algorithms step-by-step.
-  - Include Examples: Provide code examples for complex operations.
-  - Document Assumptions: Explicitly state any assumptions made in the analysis.
-  - Suggest Improvements: Proactively propose optimizations and best practices.
+Use current source and task-relevant documentation to understand the work. Preserve intended goals and justified constraints; choose methods, tools, and structure according to current needs and evidence. Existing layouts and implementations are not permanent requirements.
 
-**Project Overview**:
-  - This is an Infrared Microbolometer Sensor Design and Optimization project for the LWI program.
+Prefer clear, cohesive code. Reuse existing functionality where suitable; introduce abstractions, dependencies, or compatibility handling for concrete needs. Use validation where external inputs or independently callable APIs require it; internal helpers may rely on valid upstream guarantees. Avoid speculative fallbacks and repeated checks without a distinct purpose.
 
-**Primary Goal**:
-  - Design and optimize microbolometer sensors for substance detection and identification using spectral analysis and optimization algorithms.
+Give adjustable settings clear ownership, defaults, and override behavior. Choose function parameters, local constants, or shared configuration according to actual use.
 
-**Project-Specific Analysis Rules (LWI)**:
-  - **Physics Modeling**: Implement accurate physics-based sensor response calculations, explicitly handling blackbody radiation and atmospheric transmission modeling.
-  - **Data Validation**: Always validate spectral data integrity (e.g., wavelengths in µm, temperature in K, physical emissivity limits) before processing.
-  - **Extreme Performance Limits**: This project requires heavy optimization. If necessary, Apply strict JIT compilation (`@numba.jit(nopython=True)`) to numerical bottlenecks in tight GA loops. Utilize multiprocessing for independent CPU-bound simulation tasks.
-  - **I/O Format**: The primary data format involves Excel files. You must use robust parsers (e.g., OpenPyXL) and strictly preserve formatting and experimental metadata.
+## 2. Scientific Correctness
 
-## High-Level Design & Architecture
-**Refactor Over Patching**:
-  - NEVER write temporary patch functions or redundant utilities (e.g., a custom data loader) inside individual analysis scripts.
-  - If an existing core utility is inadequate, slow, or not robust, you MUST refactor the original core module to handle the new requirements.
+For physical models, quantities and units, spectral/tensor contracts, or objective interpretation, consult the relevant sections of `docs/THEORY_AND_IMPLEMENTATION.md` and affected API contracts. For reproducing current experiments, consult `docs/01_EXPERIMENT_PIPELINE.md`. Resolve disagreements between intended requirements and current behavior explicitly; neither code nor documentation alone establishes scientific correctness.
 
-**Separation of Concerns (SoC)**:
-  - Enforce the Single Responsibility Principle strictly. Keep high-level execution scripts clean by delegating complex data manipulations, I/O, or mathematical logic to dedicated underlying modules.
+Preserve raw spectra, material/reference data, and experimental metadata. Make transformations, exclusions, units, missing-data handling, and assumptions explicit. Keep spectral grids aligned and respect the applicable physical domains when combining inputs. Keep blackbody, atmospheric transmission, emissivity, and spectral integration assumptions explicit, with consistent spectral densities and dimensional factors. Do not disguise invalid input or substitute a different mathematical quantity merely to complete execution.
 
-**Project Structure & API**:
-  - Expose only essential, public-facing functions in package initializers (`__init__.py`).
-  - Update top-level indices and add migration notes for any structural changes.
+Keep optimization objectives and evaluation metrics distinct from broader scientific claims. An improved SAM or optimization score alone does not establish better substance identification or physical sensor performance. Preserve explicitly defined handling of degenerate or infeasible candidates; do not turn unexpected execution failures into valid scores.
 
-**Configuration SSOT**:
-  - Read parameters, paths, and magic numbers strictly from config files. NEVER hardcode them.
+Preserve intended behavior during refactoring, including supported entry points, configuration semantics, and consumed result formats. Explain and validate intentional changes, especially those affecting scientific meaning. Match evaluation to the intended independent unit and claim; prevent leakage where held-out evaluation is required.
 
-## Code Style & Formatting
-**Standard Baseline**:
-  - Strictly adhere to PEP 8 standards for general formatting and naming conventions.
-  - Use 4 spaces for indentation, `snake_case` for files/functions/variables, `PascalCase` for classes, and `UPPER_SNAKE_CASE` for constants.
+Keep consequential results reproducible through relevant input provenance, effective parameters, seeds, scene grids, and evaluation budgets. Choose precision and optimization from numerical requirements and demonstrated needs. Support non-obvious scientific choices with appropriate sources or validation.
 
-**Formatting Specifics**:
-  - Line Length: Adhere strictly to the project's linter configuration (e.g., Ruff).
-  - Quotes: Use configuration SSOT or default to double quotes for strings.
-  - Type Hints: Use type hints for function parameters and return values when practical.
-  - Docstrings: Required for all functions, classes, and modules using NumPy style.
-  - Comment Purity: When refactoring, you MUST update or remove outdated comments to ensure they accurately reflect the new logic. Do NOT generate version history/changelog comments.
-  - Import Style: Use absolute imports only. Import directly from the package name in development mode.
+## 3. Code and Documentation
 
-**Naming Consistency**:
-  - Maintain identical parameter/variable names across function boundaries when passing the same data objects.
-  - Prefer descriptive full-word names; avoid nonstandard abbreviations.
-  - Allowed short indices: Use `i/j/k`, `m/n`, or `idx` only in tight, obvious scopes.
+Use `pyproject.toml` for dependencies and formatter/linter settings. Follow consistent naming, absolute package imports, and practical type hints.
 
-## Code Quality & Testing
-**Quality, Execution & Debugging**:
-  - Do not use `print()` for debugging; strictly use standard logging libraries.
-  - Use progress bar utilities to track progress for long-running loops and data pipelines.
-  - Catch specific exception types rather than generic exceptions.
-  - Scientific Debugging SOP: When handling numerical errors, prioritize checking and logging `array.shape`, `array.dtype`, and the presence of `NaN`/`Inf` before proposing complex logical fixes.
-  - No Silent Suppressions: Do NOT globally ignore linter rules or use inline suppressions (e.g., `# type: ignore`, `# noqa`) to bypass errors. Refactor the code to properly resolve the underlying issue.
+Use NumPy conventions for structured docstrings. Simple helpers may use one-line docstrings. Explain non-obvious contracts, units, shapes, assumptions, and side effects; avoid repeating obvious code or rewriting unrelated documentation solely for style.
 
-**Testing & Documentation**:
-  - Write unit tests validating all critical paths, edge cases, and mathematical logic.
-  - Test Isolation: Use test fixtures (e.g., `pytest` fixtures) for shared setup and actively mock external dependencies (e.g., File I/O, network) to ensure tests are fast and deterministic.
-  - Floating-Point Assertions: NEVER use `==` for floating-point comparisons. Strictly use `math.isclose()` for scalars and `np.allclose()` or `assert_almost_equal()` for numerical arrays.
-  - Include mathematical formulas and rigorous algorithm explanations in docstrings.
+Keep affected documentation and comments accurate. Scientific figures should clearly identify quantities, units, and series.
 
-**Path Management**:
-  - ALWAYS use object-oriented path libraries (e.g., `pathlib`) with absolute paths resolved dynamically (via `__file__`) to avoid working directory issues.
+## 4. Verification and Changes
 
-## Scientific Analysis Workflow
-**Performance & Optimization**:
-  - Strictly prefer vectorized operations over manual loops.
-  - Forbid row-wise iteration (e.g., `iterrows`) unless mathematically unavoidable.
-  - Optimize memory for large datasets using efficient data types (e.g., `float32`) and array views over copies.
+Retain reviewed tests for consequential behavior, mathematical expectations, and regressions. Prefer independent expected results and justified numerical tolerances; revise expectations explicitly for intentional behavior changes. Use small real files or mocks according to the contract being tested.
 
-**Data Pipeline Specifics**:
-  - I/O & Parsing: Preserve original metadata and numerical precision when reading/writing raw experimental data files. Prioritize code reuse and robust I/O utilities over ad-hoc parsing scripts.
-  - Preprocessing: When requested, apply appropriate correction or normalization. NEVER silently modify raw data; make all transformations explicit and optional.
-  - Feature Extraction: Isolate meaningful features and explicitly document their domain-specific significance (physical, biological, or mathematical).
-  - Model Evaluation: Apply rigorous evaluation metrics appropriate for the task; use stratified cross-validation for imbalanced datasets.
+Run relevant configured checks, expanding validation when risks or failures justify it. Resolve underlying issues rather than weakening checks; necessary exceptions should be narrowly scoped and justified.
 
-**Research & Reproducibility**:
-  - Set random seeds and track data provenance.
-  - Cite relevant scientific literature for applied algorithms and include statistical significance tests where applicable.
-
-**Visualization**:
-  - Create publication-ready plots with consistent styling.
-  - All plots MUST include titles, axis labels with specific units, and legends.
-
-## Environment & Git Workflow
-**Environment & Tools**:
-  - Tooling SSOT: Strictly adhere to `pyproject.toml` as the Single Source of Truth for dependencies, versions, and linters. Prioritize using existing installed packages. If a superior or more modern alternative exists, propose it clearly before modifying the environment.
-  - Tooling Execution: Strictly follow the project's configured linter and formatter (e.g., `ruff check`, `ruff format`).
-
-**Atomic Refactoring**:
-  - Never leave the codebase in a broken or intermediate state.
-  - Strict Atomic Updates: When modifying an API, function, or class, you MUST simultaneously generate updates for all dependent source modules, test files, and docstrings in a single response.
-
-**Git Operations**:
-  - Commits: Capitalize the type prefix (e.g., `FEAT:`, `FIX:`) and the first letter of the message.
-  - File Operations: ALWAYS use version control commands (e.g., `git mv`, `git rm`) for tracked files instead of standard system commands to preserve file history.
+Update affected callers, tests, and documentation together. Use `git mv`/`git rm` for tracked moves/deletions. When committing, capitalize the type prefix and first word, for example `FIX: Preserve integral semantics`.

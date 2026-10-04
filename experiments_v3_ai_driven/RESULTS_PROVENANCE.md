@@ -1,12 +1,12 @@
 # Phase-3 LWI analysis provenance
 
-Additive harness (`experiments_v3_ai_driven/`). No existing script or `src/`
-module modified. `analyze_archives.py` loads the **canonical** archives in
-`outputs/v2_paper_2026/` (the run that backs the Chapter-3 prose — see the
-Phase-2 note `00_Phase2_README.md` R1) and derives the diversity/quality metrics
-the chapter refers to but which were not persisted as JSON.
+The analysis harness in `experiments_v3_ai_driven/` reads the stored archives
+in `outputs/v2_paper_2026/` that back the Chapter-3 prose (see the Phase-2 note
+`00_Phase2_README.md` R1). `analyze_archives.py` reports archive quality and
+structural diversity. These are summaries of existing runs, not new
+optimization runs or evidence of measured identification performance.
 
-## Results (`results/archive_metrics.json`) — these CONFIRM the Ch3 prose
+## Archive metrics (`results/archive_metrics.json`)
 
 | Archive | peak | coverage | QD-score | elite-20 | #≥55 |
 |---|---|---|---|---|---|
@@ -21,10 +21,11 @@ Cross-check against the chapter text:
 - Minimax peak/floor 56.69 ✓.
 - Multi-start peak 59.54 ✓.
 
-**QD-score** (sum of positive elite fitnesses over filled cells) is a new, standard
-QD-field metric added for the paper: MAP-Elites (7612) > Minimax (6718) > CMA-ME
-(6613). MAP-Elites dominates CMA-ME on QD-score at equal 1× budget, quantifying
-the "No Free Lunch" argument the chapter makes qualitatively.
+**QD-score** is the sum of positive elite fitnesses over filled cells:
+MAP-Elites (7612) > Minimax (6718) > CMA-ME (6613) in these stored archives.
+This ranking describes this run set; it does not establish general algorithm
+superiority. Historical budget labels are not a measurement of actual
+fitness-evaluation counts.
 
 ## Family-count sweep (permutation-invariant optimal-pairing single-linkage)
 
@@ -51,11 +52,46 @@ cd lwi-microbolometer-design
 .venv.nosync/bin/python experiments_v3_ai_driven/analyze_archives.py
 ```
 
-## Still designed-but-not-run (documented in Phase-2 `01_...` A5, deferred for correctness)
+## Pending off-grid validation
 
-Grid-density robustness validation (re-evaluate the Minimax elites on a denser /
-off-grid scene set) was NOT run tonight: it requires wiring the full physics
-`MinDissimilarityFitnessEvaluator` with a new scene grid, and doing it under time
-pressure risked a subtly-wrong physics setup. It is specified in
-`Phase2_Architecture_Design/01_Ch3_LWI_Experiment_and_Code_Architecture.md` (A5)
-and should be run deliberately with the substance/atmosphere data loaded.
+Grid-density robustness validation evaluates the Minimax elites on a denser
+or off-grid scene set using `MinDissimilarityFitnessEvaluator`. It is specified
+in `Phase2_Architecture_Design/01_Ch3_LWI_Experiment_and_Code_Architecture.md`
+(A5). No off-grid result is recorded here.
+
+## Stored 2026-07-13 in-grid robustness (`analyze_minimax_robustness.py`)
+
+`analyze_minimax_robustness.py` evaluates the step-08 Minimax MAP-Elites archive
+with the same evaluator and default 25-scene grid as `run_07`, retaining the
+top 64 archive elites and aligning the nominal baseline to the training scene.
+The stored JSON is `results/minimax_robustness.json`; its nominal comparison
+comes from `outputs/v2_paper_2026/07_robustness_test/robustness_summary.json`.
+The grid uses temperatures 273.15–313.15 K, distance ratios
+0.05/0.08/0.11/0.15/0.20 and refractive index 1.0. This is in-grid evaluation.
+
+| Archive (top-64, 25-scene grid) | mean worst-case retention | worst-elite retention | mean CV |
+|---|---|---|---|
+| Nominal MAP-Elites+HC (step 05) | 91.70% | **71.6%** (bad tail) | 0.035 |
+| **Minimax MAP-Elites (step 08)** | **97.51%** | **92.45%** | **0.013** |
+
+The Minimax archive has higher relative retention, especially in its least
+retained elite, and lower mean CV. Relative retention is distinct from absolute
+SAM: mean worst-case SAM is 44.24 degrees for Minimax and 44.59 degrees for the
+nominal archive in the stored summaries. These numbers do not show an increase
+in mean worst-case SAM.
+
+The supplied atmospheric transmission is identically one, so the distance
+sweep does not test wavelength-dependent attenuation. The stored results
+therefore characterize the configured spectral surrogate and temperature
+grid, not general atmospheric or detector robustness (see
+`docs/THEORY_AND_IMPLEMENTATION.md`, Section 19).
+
+The stored JSON and optimizer archives retain their historical values. A
+current-code recheck should use a separate output path; future runs must record
+their code revision, input provenance, effective grid and top-N selection.
+
+Reproduce:
+```
+cd lwi-microbolometer-design
+.venv.nosync/bin/python experiments_v3_ai_driven/analyze_minimax_robustness.py --output .ai-tmp/minimax-recheck/summary.json
+```
